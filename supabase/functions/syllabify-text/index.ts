@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     }
 
     // Get API key from environment variables
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
+    const apiKey = Deno.env.get('CZYTAM_GEMINI_API_KEY');
     if (!apiKey) {
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),

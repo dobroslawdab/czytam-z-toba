@@ -56,7 +56,7 @@ W panelu Supabase:
 
 1. Wejdź do **Project Settings** → **Edge Functions**
 2. Dodaj **Secret** (zmienną środowiskową):
-   - **Name**: `GEMINI_API_KEY`
+   - **Name**: `CZYTAM_GEMINI_API_KEY`
    - **Value**: Twój klucz API Google Gemini
 
 ## Krok 5: Wdróż Edge Functions
@@ -122,7 +122,7 @@ supabase secrets set GEMINI_API_KEY=twoj_klucz_api
 
 ### Błąd: "API key not configured"
 
-Upewnij się, że ustawiłeś `GEMINI_API_KEY` w sekcji Edge Functions → Secrets w panelu Supabase.
+Upewnij się, że ustawiłeś `CZYTAM_GEMINI_API_KEY` w sekcji Edge Functions → Secrets w panelu Supabase.
 
 ### Błąd CORS
 
