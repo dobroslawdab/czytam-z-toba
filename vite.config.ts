@@ -10,6 +10,18 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
+      build: {
+        target: 'es2015', // Support older browsers including old Safari
+        modulePreload: {
+          polyfill: true,
+        },
+        cssCodeSplit: false,
+        rollupOptions: {
+          output: {
+            manualChunks: undefined,
+          },
+        },
+      },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
