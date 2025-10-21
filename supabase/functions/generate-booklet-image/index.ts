@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.21.0";
+import { GoogleGenAI, Modality } from "npm:@google/genai@1.25.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,9 +30,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Gemini 2.0 doesn't support image generation directly
-    // For now, return error - need to implement Imagen API
-    throw new Error('Booklet image generation requires Imagen API - not yet implemented');
+    // Call Gemini API to generate booklet image (same as local version)
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = `Prosty, przyjazny dziecku rysunek w stylu kreskówki ilustrujący zdanie: "${sentence}". Czyste linie, proste kolory, białe tło. Bez żadnego tekstu na obrazku. ${characterImageBase64 ? 'Użyj postaci z referencyjnego obrazka.' : ''}`;
+
+    const parts = [{ text: prompt }];
+
+    // Add reference image if provided
+    if (characterImageBase64) {
+      parts.push({
+        inlineData: {
+          mimeType: 'image/png',
+          data: characterImageBase64
+        }
+      });
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash-exp',
+      contents: { parts },
+      config: { responseModalities: [Modality.IMAGE] }
+    });
+
+    // Extract base64 image from response
+    const base64Image = response.candidates[0].content.parts[0].inlineData.data;
 
     return new Response(
       JSON.stringify({ base64Image }),
