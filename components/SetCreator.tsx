@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LearningSet, Word, SetType } from '../types';
 import { Icon } from './ui/Icon';
 import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { uploadBookletImage, syllabifyText } from '../supabase';
 
 interface SetCreatorProps {
     words: Word[];
@@ -10,7 +11,7 @@ interface SetCreatorProps {
     set_to_edit?: LearningSet | null;
 }
 
-type Sentence = { text: string; image?: string };
+type Sentence = { text: string; image?: string; syllables?: string };
 
 export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel, set_to_edit }) => {
     const [step, setStep] = useState(set_to_edit ? 2 : 1);
@@ -22,6 +23,7 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     const [manualSentence, setManualSentence] = useState('');
     const [isGeneratingText, setIsGeneratingText] = useState(false);
     const [generatingImageIndex, setGeneratingImageIndex] = useState<number | null>(null);
+    const [syllabifyingIndex, setSyllabifyingIndex] = useState<number | null>(null);
     const [error, setError] = useState('');
     const [mainCharacterWordId, setMainCharacterWordId] = useState<string | null>(null);
     const [characterReferenceImage, setCharacterReferenceImage] = useState<string | null>(null);
@@ -32,10 +34,46 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
             setSetType(set_to_edit.type);
             setSelectedWordIds(set_to_edit.wordIds);
             if (set_to_edit.type === SetType.Booklet && set_to_edit.sentences) {
-                 setSentences(set_to_edit.sentences.map(s => ({ text: s.text })));
+                 setSentences(set_to_edit.sentences.map((s: any) => ({
+                     text: s.text,
+                     ...(s.image_url && { image: s.image_url }), // Load existing image_url as image for preview
+                     ...(s.syllables && { syllables: s.syllables }) // Load existing syllables
+                 })));
             }
         }
     }, [set_to_edit]);
+
+    // Load character reference image from word.image_url when main character is selected
+    useEffect(() => {
+        const loadCharacterImage = async () => {
+            if (!mainCharacterWordId) {
+                setCharacterReferenceImage(null);
+                return;
+            }
+
+            const mainCharacterWord = words.find(w => w.id === mainCharacterWordId);
+            if (!mainCharacterWord || !mainCharacterWord.image_url) {
+                setCharacterReferenceImage(null);
+                return;
+            }
+
+            try {
+                // Fetch image from URL and convert to base64
+                const response = await fetch(mainCharacterWord.image_url);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setCharacterReferenceImage(reader.result as string);
+                };
+                reader.readAsDataURL(blob);
+            } catch (err) {
+                console.error('Error loading character image:', err);
+                setCharacterReferenceImage(null);
+            }
+        };
+
+        loadCharacterImage();
+    }, [mainCharacterWordId, words]);
 
 
     const handleNextStep = () => {
@@ -46,26 +84,85 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
         handleSave();
     };
 
-    const handleSave = () => {
+    const handleSyllabifySentence = async (index: number) => {
+        const sentence = sentences[index];
+        if (!sentence.text.trim()) return;
+
+        setSyllabifyingIndex(index);
+        setError('');
+
+        try {
+            const syllabified = await syllabifyText(sentence.text);
+            setSentences(prev => prev.map((s, i) =>
+                i === index ? { ...s, syllables: syllabified } : s
+            ));
+        } catch (err: any) {
+            console.error('Error syllabifying sentence:', err);
+            setError(err.message || 'Nie udało się podzielić na sylaby');
+        } finally {
+            setSyllabifyingIndex(null);
+        }
+    };
+
+    const handleEditSyllables = (index: number, newSyllables: string) => {
+        setSentences(prev => prev.map((s, i) =>
+            i === index ? { ...s, syllables: newSyllables } : s
+        ));
+    };
+
+    const handleSave = async () => {
         if (!setName || !setType || selectedWordIds.length === 0) return;
         if (setType === SetType.Booklet && sentences.length === 0) return;
 
-        const imagesToPass: Record<number, string> = {};
-        const sentencesToStore = sentences.map((sentence, index) => {
-            if (sentence.image) {
-                imagesToPass[index] = sentence.image;
-            }
-            return { text: sentence.text };
-        });
+        try {
+            // Upload booklet images to Supabase Storage and get URLs
+            const sentencesToStore = await Promise.all(
+                sentences.map(async (sentence, index) => {
+                    const sentenceData: { text: string; image_url?: string; syllables?: string } = {
+                        text: sentence.text
+                    };
 
-        const setToSave: Partial<LearningSet> = {
-            ...(set_to_edit && { id: set_to_edit.id }),
-            name: setName,
-            type: setType,
-            wordIds: selectedWordIds,
-            ...(setType === SetType.Booklet && { sentences: sentencesToStore })
-        };
-        onSave(setToSave, imagesToPass);
+                    // Add syllables if available
+                    if (sentence.syllables) {
+                        sentenceData.syllables = sentence.syllables;
+                    }
+
+                    // Handle image upload
+                    if (sentence.image) {
+                        // Check if it's a new base64 image or an existing URL
+                        if (sentence.image.startsWith('data:image')) {
+                            // Upload new image and get URL
+                            const imageUrl = await uploadBookletImage(sentence.image, sentence.text);
+                            sentenceData.image_url = imageUrl;
+                        } else {
+                            // Already a URL from database, keep it
+                            sentenceData.image_url = sentence.image;
+                        }
+                    }
+
+                    return sentenceData;
+                })
+            );
+
+            const imagesToPass: Record<number, string> = {};
+            sentencesToStore.forEach((sentence, index) => {
+                if (sentence.image_url) {
+                    imagesToPass[index] = sentence.image_url;
+                }
+            });
+
+            const setToSave: Partial<LearningSet> = {
+                ...(set_to_edit && { id: set_to_edit.id }),
+                name: setName,
+                type: setType,
+                wordIds: selectedWordIds,
+                ...(setType === SetType.Booklet && { sentences: sentencesToStore })
+            };
+            onSave(setToSave, imagesToPass);
+        } catch (err: any) {
+            console.error('Error saving booklet:', err);
+            setError(err.message || 'Nie udało się zapisać zestawu. Spróbuj ponownie.');
+        }
     };
 
     const handleGenerateSentences = async () => {
@@ -95,8 +192,19 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
 
             const jsonResponse = JSON.parse(response.text);
             if (jsonResponse.sentences && Array.isArray(jsonResponse.sentences)) {
-                const newSentences = jsonResponse.sentences.map((s: string) => ({ text: s }));
-                setSentences(prev => [...prev, ...newSentences]);
+                // Syllabify each sentence immediately before adding to state
+                const newSentencesWithSyllables = await Promise.all(
+                    jsonResponse.sentences.map(async (s: string) => {
+                        try {
+                            const syllabified = await syllabifyText(s);
+                            return { text: s, syllables: syllabified };
+                        } catch (err) {
+                            console.error('Error syllabifying sentence:', err);
+                            return { text: s }; // Add without syllables if error
+                        }
+                    })
+                );
+                setSentences(prev => [...prev, ...newSentencesWithSyllables]);
             }
 
         } catch (error) {
@@ -113,36 +221,29 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
             return;
         }
 
+        if (!characterReferenceImage) {
+            setError("Ładowanie ilustracji postaci głównej... Spróbuj ponownie za chwilę.");
+            return;
+        }
+
         setGeneratingImageIndex(sentenceIndex);
         setError('');
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const sentenceText = sentences[sentenceIndex].text;
-            const mainCharacterWord = words.find(w => w.id === mainCharacterWordId);
-            
-            let response;
 
-            if (!characterReferenceImage) {
-                const prompt = `Prosty, przyjazny dziecku rysunek w stylu kreskówki, przedstawiający tylko i wyłącznie: ${mainCharacterWord!.text}. Czyste linie, proste kolory, białe tło. Bez żadnego tekstu na obrazku.`;
-                response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash-image',
-                    contents: { parts: [{ text: prompt }] },
-                    config: { responseModalities: [Modality.IMAGE] },
-                });
-            } else {
-                const prompt = `Używając tej postaci jako wzoru, narysuj ją wykonującą czynność z tego zdania: "${sentenceText}". Styl ma być identyczny jak na obrazku wzorcowym: prosty, przyjazny dziecku rysunek w stylu kreskówki. Białe tło. Bez żadnego tekstu na obrazku.`;
-                const imagePart = {
-                    inlineData: {
-                        data: characterReferenceImage.split(',')[1],
-                        mimeType: 'image/png'
-                    }
-                };
-                response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash-image',
-                    contents: { parts: [imagePart, { text: prompt }] },
-                    config: { responseModalities: [Modality.IMAGE] },
-                });
-            }
+            const prompt = `Używając tej postaci jako wzoru, narysuj ją wykonującą czynność z tego zdania: "${sentenceText}". Styl ma być identyczny jak na obrazku wzorcowym: prosty, przyjazny dziecku rysunek w stylu kreskówki. Białe tło. Bez żadnego tekstu na obrazku.`;
+            const imagePart = {
+                inlineData: {
+                    data: characterReferenceImage.split(',')[1],
+                    mimeType: 'image/png'
+                }
+            };
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts: [imagePart, { text: prompt }] },
+                config: { responseModalities: [Modality.IMAGE] },
+            });
 
 
             if (response.promptFeedback?.blockReason) {
@@ -165,15 +266,11 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                  throw new Error(errorMessage);
             }
             
-            const imagePart = candidate.content?.parts?.find(p => p.inlineData);
-            if (imagePart && imagePart.inlineData) {
-                const base64Image = imagePart.inlineData.data;
+            const resultImagePart = candidate.content?.parts?.find(p => p.inlineData);
+            if (resultImagePart && resultImagePart.inlineData) {
+                const base64Image = resultImagePart.inlineData.data;
                 const imageUrl = `data:image/png;base64,${base64Image}`;
-                
-                if (!characterReferenceImage) {
-                    setCharacterReferenceImage(imageUrl);
-                }
-                
+
                 setSentences(prev => prev.map((s, i) => i === sentenceIndex ? { ...s, image: imageUrl } : s));
             } else {
                  throw new Error("API nie zwróciło danych obrazka, mimo że odpowiedź była pomyślna. Spróbuj ponownie, być może zmieniając treść zdania.");
@@ -195,10 +292,20 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
         );
     };
 
-    const handleAddManualSentence = () => {
+    const handleAddManualSentence = async () => {
         if (manualSentence.trim()) {
-            setSentences(prev => [...prev, { text: manualSentence.trim() }]);
+            const text = manualSentence.trim();
             setManualSentence('');
+
+            // Syllabify before adding to state
+            try {
+                const syllabified = await syllabifyText(text);
+                setSentences(prev => [...prev, { text, syllables: syllabified }]);
+            } catch (err) {
+                console.error('Error syllabifying manual sentence:', err);
+                // Add without syllables if error
+                setSentences(prev => [...prev, { text }]);
+            }
         }
     };
 
@@ -307,12 +414,9 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                 <p className="text-sm text-gray-600 mt-1 mb-3">Wybierz postać, która będzie pojawiać się na wszystkich obrazkach. To zapewni spójność ilustracji. Zmiana postaci zresetuje referencyjny obrazek.</p>
                 <div className="flex flex-wrap gap-2">
                     {(selectedWordIds.map(id => words.find(w => w.id === id)).filter(Boolean) as Word[]).map(word => (
-                        <button 
-                            key={word.id} 
-                            onClick={() => {
-                                setMainCharacterWordId(word.id);
-                                setCharacterReferenceImage(null);
-                            }}
+                        <button
+                            key={word.id}
+                            onClick={() => setMainCharacterWordId(word.id)}
                             className={`flex items-center space-x-2 p-2 rounded-lg border-2 transition-colors ${mainCharacterWordId === word.id ? 'border-indigo-500 bg-indigo-50' : 'border-transparent bg-gray-100 hover:bg-gray-200'}`}
                         >
                             <img src={word.image_url} alt={word.text} className="w-8 h-8 rounded-md object-cover"/>
@@ -330,26 +434,48 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                         <p className="text-gray-500 text-center py-4">Brak zdań. Dodaj je ręcznie lub wygeneruj.</p>
                     ) : (
                         sentences.map((sentence, index) => (
-                            <div key={index} className="flex justify-between items-center p-2 rounded-md bg-white shadow-sm">
-                                <div className="flex items-center flex-grow">
-                                    {sentence.image ? (
-                                        <img src={sentence.image} alt="Wygenerowany obrazek" className="w-12 h-12 rounded-md mr-3 object-cover"/>
-                                    ) : (
-                                         <div className="w-12 h-12 rounded-md mr-3 bg-gray-200 flex items-center justify-center text-gray-400">?</div>
-                                    )}
-                                    <p className="flex-grow">{sentence.text}</p>
-                                </div>
-                                <div className="flex items-center space-x-2 ml-2">
-                                    <button 
-                                        onClick={() => handleGenerateImage(index)}
-                                        disabled={generatingImageIndex !== null}
-                                        className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 disabled:bg-gray-200 disabled:cursor-wait"
-                                    >
-                                        {generatingImageIndex === index ? '...' : (sentence.image ? 'Zmień' : 'Generuj obrazek')}
-                                    </button>
-                                    <button onClick={() => handleRemoveSentence(index)} className="text-gray-400 hover:text-red-500 p-1">
-                                        <Icon name="trash" className="w-4 h-4" />
-                                    </button>
+                            <div key={index} className="p-3 rounded-md bg-white shadow-sm space-y-2">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-start flex-grow">
+                                        {sentence.image ? (
+                                            <img src={sentence.image} alt="Wygenerowany obrazek" className="w-12 h-12 rounded-md mr-3 object-cover"/>
+                                        ) : (
+                                             <div className="w-12 h-12 rounded-md mr-3 bg-gray-200 flex items-center justify-center text-gray-400">?</div>
+                                        )}
+                                        <div className="flex-grow">
+                                            <p className="learning-text text-base text-gray-800">{sentence.text}</p>
+                                            <div className="mt-2 flex items-center space-x-2">
+                                                <label className="text-xs text-gray-600">Sylaby:</label>
+                                                <input
+                                                    type="text"
+                                                    value={sentence.syllables || ''}
+                                                    onChange={(e) => handleEditSyllables(index, e.target.value)}
+                                                    placeholder={syllabifyingIndex === index ? 'DZIELENIE...' : 'FO·KA PLY·WA'}
+                                                    disabled={syllabifyingIndex === index}
+                                                    className="learning-text flex-grow text-sm px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100"
+                                                />
+                                                <button
+                                                    onClick={() => handleSyllabifySentence(index)}
+                                                    disabled={syllabifyingIndex === index}
+                                                    className="text-xs px-3 py-1 bg-indigo-100 text-indigo-800 rounded-md hover:bg-indigo-200 disabled:bg-gray-200 disabled:cursor-wait font-semibold whitespace-nowrap"
+                                                >
+                                                    {syllabifyingIndex === index ? '...' : 'AI Podziel'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center space-x-2 ml-2">
+                                        <button
+                                            onClick={() => handleGenerateImage(index)}
+                                            disabled={generatingImageIndex !== null}
+                                            className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 disabled:bg-gray-200 disabled:cursor-wait"
+                                        >
+                                            {generatingImageIndex === index ? '...' : (sentence.image ? 'Zmień' : 'Generuj obrazek')}
+                                        </button>
+                                        <button onClick={() => handleRemoveSentence(index)} className="text-gray-400 hover:text-red-500 p-1">
+                                            <Icon name="trash" className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))

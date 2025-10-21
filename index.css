@@ -1,0 +1,37 @@
+/* Główny plik CSS dla aplikacji "Czytam z Tobą" */
+
+/* Klasa dla tekstów edukacyjnych - wszystko wielkimi literami, czytelna czcionka */
+.learning-text {
+    text-transform: uppercase;
+    font-family: 'Arial', 'Helvetica', 'Verdana', 'Tahoma', sans-serif;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    line-height: 1.4;
+}
+
+/* Warianty rozmiarów dla różnych kontekstów */
+.learning-text-sentence {
+    font-size: 4.5rem; /* 72px - pomniejszone o 1/3 */
+    line-height: 1.3;
+}
+
+.learning-text-syllables {
+    font-size: 3.75rem; /* 60px - pomniejszone o 1/3 */
+    line-height: 1.35;
+}
+
+.learning-text-word {
+    font-size: 6rem; /* 96px - pomniejszone o 1/3 */
+    line-height: 1.2;
+}
+
+.learning-text-card {
+    font-size: 5rem; /* 80px - pomniejszone o 1/3 */
+    line-height: 1.25;
+}
+
+/* Dodatkowe klasy pomocnicze */
+.syllable-separator {
+    color: #4f46e5; /* Indigo */
+    font-weight: bold;
+}

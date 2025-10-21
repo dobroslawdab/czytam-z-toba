@@ -50,11 +50,11 @@ const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
                 <img src={currentWord.image_url} alt={currentWord.text} className="max-w-full max-h-[65%] object-contain rounded-lg" />
                 <div className="mt-8 text-6xl md:text-8xl font-bold tracking-wider text-center h-28 flex items-center">
                     {showSyllables ? (
-                        <p className="text-indigo-600 animate-[fadeIn_0.3s_ease-in-out]">
+                        <p className="learning-text learning-text-word text-indigo-600 animate-[fadeIn_0.3s_ease-in-out]">
                             {currentWord.syllables.join(' · ')}
                         </p>
                     ) : (
-                         <p className="text-gray-800 animate-[fadeIn_0.3s_ease-in-out]">
+                         <p className="learning-text learning-text-word text-gray-800 animate-[fadeIn_0.3s_ease-in-out]">
                             {currentWord.text}
                         </p>
                     )}
@@ -78,7 +78,7 @@ const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
 
 interface BookletModeProps {
     session: ActiveSession;
-    sentences: { text: string }[];
+    sentences: { text: string; syllables?: string }[];
     sessionImages: Record<string, string>;
 }
 
@@ -94,6 +94,17 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     useEffect(() => {
         if (!currentSentence) return;
 
+        // Check if syllables are already stored in the database
+        if (currentSentence.syllables) {
+            // Use pre-saved syllables (no AI call needed)
+            setSyllabifiedText(currentSentence.syllables);
+            setShowAsSyllables(true);
+            setSyllabifyError(null);
+            setIsSyllabifying(false);
+            return;
+        }
+
+        // Backward compatibility: syllabify on-the-fly for old booklets without syllables
         const syllabify = async () => {
             setIsSyllabifying(true);
             setShowAsSyllables(true);
@@ -138,18 +149,18 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
 
     const renderSentence = () => {
         if (!showAsSyllables) {
-            return <p className="animate-[fadeIn_0.3s_ease-in-out]">{currentSentence.text}</p>;
+            return <p className="learning-text learning-text-sentence animate-[fadeIn_0.3s_ease-in-out]">{currentSentence.text}</p>;
         }
         if (isSyllabifying) {
-            return <p className="text-gray-500 animate-pulse">Dzielenie na sylaby...</p>;
+            return <p className="learning-text learning-text-sentence text-gray-500 animate-pulse">Dzielenie na sylaby...</p>;
         }
         if (syllabifyError) {
-            return <p className="text-red-500 animate-[fadeIn_0.3s_ease-in-out]">{syllabifyError}</p>;
+            return <p className="learning-text learning-text-sentence text-red-500 animate-[fadeIn_0.3s_ease-in-out]">{syllabifyError}</p>;
         }
         if (syllabifiedText) {
-            return <p className="text-indigo-600 animate-[fadeIn_0.3s_ease-in-out]">{syllabifiedText}</p>;
+            return <p className="learning-text learning-text-sentence text-indigo-600 animate-[fadeIn_0.3s_ease-in-out]">{syllabifiedText}</p>;
         }
-        return <p className="text-gray-500 animate-pulse">Ładowanie...</p>;
+        return <p className="learning-text learning-text-sentence text-gray-500 animate-pulse">Ładowanie...</p>;
     }
 
 
@@ -211,11 +222,11 @@ const SyllablesInMotionMode: React.FC<SyllablesInMotionModeProps> = ({ words }) 
              <div className="w-full max-w-4xl aspect-[4/3] bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 relative">
                 <div className="flex items-center justify-center space-x-4 h-32">
                     {!isSplit ? (
-                         <h1 className="text-8xl font-bold text-gray-800">{word.text}</h1>
+                         <h1 className="learning-text learning-text-word text-8xl font-bold text-gray-800">{word.text}</h1>
                     ) : (
                         word.syllables.map((syllable, index) => (
                             <React.Fragment key={index}>
-                                <div className="text-8xl font-bold text-indigo-600 cursor-pointer hover:scale-110 transition-transform">{syllable}</div>
+                                <div className="learning-text learning-text-word text-8xl font-bold text-indigo-600 cursor-pointer hover:scale-110 transition-transform">{syllable}</div>
                                 {index < word.syllables.length - 1 && <div className="text-6xl text-gray-300">|</div>}
                             </React.Fragment>
                         ))
@@ -245,7 +256,7 @@ const CompareWordsMode: React.FC<CompareWordsModeProps> = ({ words }) => {
                 {words.map(word => (
                     <div key={word.id} className="bg-white rounded-2xl shadow-xl flex flex-col items-center p-6 w-52 sm:w-64">
                         <img src={word.image_url} alt={word.text} className="w-full aspect-video object-cover rounded-lg mb-4" />
-                        <p className="text-3xl sm:text-4xl font-bold text-gray-800 tracking-wider">{word.text}</p>
+                        <p className="learning-text learning-text-word text-3xl sm:text-4xl font-bold text-gray-800 tracking-wider">{word.text}</p>
                     </div>
                 ))}
             </div>
@@ -347,7 +358,7 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words }) => {
                                             <img src={word.image_url} alt={word.text} className="max-w-full max-h-full object-contain rounded-t-lg"/>
                                         </div>
                                         <div className="w-full h-1/3 flex items-center justify-center border-t mt-1">
-                                            <p className="text-xl sm:text-2xl font-bold text-gray-800 text-center">{word.text}</p>
+                                            <p className="learning-text learning-text-card text-xl sm:text-2xl font-bold text-gray-800 text-center">{word.text}</p>
                                         </div>
                                     </div>
                                 </div>

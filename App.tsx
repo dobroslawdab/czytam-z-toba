@@ -36,6 +36,19 @@ const App: React.FC = () => {
                     throw supabaseError;
                 }
                 setSets(data || []);
+
+                // Populate sessionImages from sentences that have image_url
+                const loadedImages: Record<string, string> = {};
+                (data || []).forEach(set => {
+                    if (set.sentences && Array.isArray(set.sentences)) {
+                        set.sentences.forEach((sentence: any, index: number) => {
+                            if (sentence.image_url) {
+                                loadedImages[`${set.id}-${index}`] = sentence.image_url;
+                            }
+                        });
+                    }
+                });
+                setSessionImages(loadedImages);
             } catch (err: any) {
                 console.error('Error fetching sets:', err);
                 setError(`Nie udało się pobrać zestawów z bazy danych. Błąd: ${err.message || 'Wystąpił nieznany błąd.'}`);
@@ -63,19 +76,9 @@ const App: React.FC = () => {
     }, []);
 
     const handleSaveSet = async (set: Partial<LearningSet>, images: Record<number, string>) => {
-        // In a real app, images would be uploaded to Supabase Storage.
-        // For this demo, we'll continue to handle them in session state.
-        const newImages: Record<string, string> = {};
-        Object.entries(images).forEach(([index, imageUrl]) => {
-             // We need an ID for the key, but a new set doesn't have one yet.
-             // This part of the logic would need revision with real storage.
-             if (set.id) {
-                newImages[`${set.id}-${index}`] = imageUrl;
-             }
-        });
-        setSessionImages(prev => ({ ...prev, ...newImages }));
-
         try {
+            let savedSetId: number;
+
             if (set.id) {
                 // Update existing set
                 const { data, error: updateError } = await supabase
@@ -89,6 +92,7 @@ const App: React.FC = () => {
 
                 if (data) {
                     setSets(prev => prev.map(s => s.id === data.id ? data : s));
+                    savedSetId = data.id;
                 }
             } else {
                 // Create new set
@@ -102,9 +106,17 @@ const App: React.FC = () => {
 
                 if (data) {
                     setSets(prev => [data, ...prev]);
+                    savedSetId = data.id;
                 }
             }
-            
+
+            // NOW add images to sessionImages with the correct set ID
+            const newImages: Record<string, string> = {};
+            Object.entries(images).forEach(([index, imageUrl]) => {
+                newImages[`${savedSetId}-${index}`] = imageUrl;
+            });
+            setSessionImages(prev => ({ ...prev, ...newImages }));
+
             setCurrentView(View.Dashboard);
             setEditingSet(null);
         } catch (err: any) {

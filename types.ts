@@ -20,7 +20,7 @@ export interface LearningSet {
   name: string;
   type: SetType;
   wordIds: string[];
-  sentences?: { text: string }[];
+  sentences?: { text: string; image_url?: string; syllables?: string }[];
 }
 
 export interface ChildProfile {

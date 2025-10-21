@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { LearningSet, Word } from './types';
+import { GoogleGenAI } from "@google/genai";
 
 // WAŻNE: Uzupełnij poniższe dane swoimi kluczami z pulpitu Supabase
 // Wejdź w Settings -> API w swoim projekcie Supabase.
@@ -121,5 +122,72 @@ export const uploadWordImage = async (base64Data: string, wordText: string): Pro
     } catch (err: any) {
         console.error('Upload word image error:', err);
         throw new Error(err.message || 'Nie udało się przesłać obrazka do storage');
+    }
+};
+
+/**
+ * Upload booklet sentence image to Supabase Storage
+ * @param imageDataUrl - Full data URL (data:image/png;base64,...)
+ * @param sentenceText - The sentence text (used for filename)
+ * @returns Public URL of the uploaded image
+ */
+export const uploadBookletImage = async (imageDataUrl: string, sentenceText: string): Promise<string> => {
+    try {
+        // Convert data URL to Blob
+        const base64Response = await fetch(imageDataUrl);
+        const blob = await base64Response.blob();
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const sanitizedText = sentenceText.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 30);
+        const fileName = `public/${timestamp}-${sanitizedText}.png`;
+
+        // Upload to Supabase Storage bucket 'set_images'
+        const { data, error } = await supabase.storage
+            .from('set_images')
+            .upload(fileName, blob, {
+                contentType: 'image/png',
+                upsert: false
+            });
+
+        if (error) {
+            console.error('Supabase Storage upload error:', error);
+            throw new Error(`Nie udało się zapisać obrazka: ${error.message}`);
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+            .from('set_images')
+            .getPublicUrl(fileName);
+
+        return publicUrl;
+    } catch (err: any) {
+        console.error('Upload booklet image error:', err);
+        throw new Error(err.message || 'Nie udało się przesłać obrazka do storage');
+    }
+};
+
+// ============================================
+// AI SYLLABIFICATION Function
+// ============================================
+
+/**
+ * Divide text into syllables using AI
+ * @param text - The sentence to syllabify
+ * @returns Syllabified text with middle dots in UPPERCASE (e.g., "FO·KA PLY·WA")
+ */
+export const syllabifyText = async (text: string): Promise<string> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Podziel na sylaby KAŻDE słowo w poniższym zdaniu. Oddziel sylaby za pomocą kropki środkowej (·), np. "KO·T". WSZYSTKIE LITERY MUSZĄ BYĆ WIELKIE (UPPERCASE). Zachowaj znaki interpunkcyjne. Zwróć tylko i wyłącznie zmodyfikowane zdanie. Zdanie: "${text}"`,
+        });
+
+        const result = response.text.trim().replace(/·/g, '·').toUpperCase();
+        return result;
+    } catch (err: any) {
+        console.error('Syllabify text error:', err);
+        throw new Error(err.message || 'Nie udało się podzielić tekstu na sylaby');
     }
 };
