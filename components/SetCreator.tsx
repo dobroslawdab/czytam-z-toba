@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LearningSet, Word, SetType } from '../types';
 import { Icon } from './ui/Icon';
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { uploadBookletImage, syllabifyText } from '../supabase';
+import { uploadBookletImage, syllabifyText, generateSentences, generateBookletImage } from '../supabase';
 
 interface SetCreatorProps {
     words: Word[];
@@ -169,28 +168,11 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
         setIsGeneratingText(true);
         setError('');
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const selectedWords = selectedWordIds.map(id => words.find(w => w.id === id)?.text).filter(Boolean);
-            
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `Jesteś asystentem tworzącym materiały edukacyjne dla dzieci uczących się czytać. Na podstawie podanej listy słów, utwórz 3 proste, krótkie zdania. Każde zdanie powinno być odpowiednie dla małego dziecka i składać się głównie z podanych słów. Słowa: ${selectedWords.join(', ')}.`,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            sentences: {
-                                type: Type.ARRAY,
-                                description: 'Tablica 3 prostych zdań dla dzieci.',
-                                items: { type: Type.STRING }
-                            }
-                        }
-                    },
-                },
-            });
+            const selectedWords = selectedWordIds.map(id => words.find(w => w.id === id)?.text).filter(Boolean) as string[];
 
-            const jsonResponse = JSON.parse(response.text);
+            // Call Edge Function to generate sentences
+            const jsonResponse = await generateSentences(selectedWords);
+
             if (jsonResponse.sentences && Array.isArray(jsonResponse.sentences)) {
                 // Syllabify each sentence immediately before adding to state
                 const newSentencesWithSyllables = await Promise.all(
@@ -229,52 +211,16 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
         setGeneratingImageIndex(sentenceIndex);
         setError('');
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const sentenceText = sentences[sentenceIndex].text;
 
-            const prompt = `Używając tej postaci jako wzoru, narysuj ją wykonującą czynność z tego zdania: "${sentenceText}". Styl ma być identyczny jak na obrazku wzorcowym: prosty, przyjazny dziecku rysunek w stylu kreskówki. Białe tło. Bez żadnego tekstu na obrazku.`;
-            const imagePart = {
-                inlineData: {
-                    data: characterReferenceImage.split(',')[1],
-                    mimeType: 'image/png'
-                }
-            };
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: { parts: [imagePart, { text: prompt }] },
-                config: { responseModalities: [Modality.IMAGE] },
-            });
+            // Extract base64 data from data URL
+            const characterImageBase64 = characterReferenceImage.split(',')[1];
 
+            // Call Edge Function to generate booklet image
+            const base64Image = await generateBookletImage(sentenceText, characterImageBase64);
+            const imageUrl = `data:image/png;base64,${base64Image}`;
 
-            if (response.promptFeedback?.blockReason) {
-                throw new Error(`Nie udało się wygenerować obrazka. Powód: ${response.promptFeedback.blockReason}.`);
-            }
-
-            const candidate = response.candidates?.[0];
-
-            if (!candidate || (candidate.finishReason !== 'STOP' && candidate.finishReason !== 'UNSPECIFIED')) {
-                 let errorMessage;
-                 if (candidate) {
-                    if (candidate.finishReason === 'NO_IMAGE') {
-                        errorMessage = "Nie udało się wygenerować obrazka. Model AI nie był w stanie zwizualizować tej treści. Spróbuj uprościć zdanie lub spróbować ponownie.";
-                    } else {
-                        errorMessage = `Nie udało się wygenerować obrazka. Otrzymano nieoczekiwaną odpowiedź (powód: ${candidate.finishReason}). Spróbuj ponownie.`;
-                    }
-                 } else {
-                     errorMessage = `Nie udało się wygenerować obrazka. API nie zwróciło żadnych wyników. Spróbuj ponownie.`;
-                 }
-                 throw new Error(errorMessage);
-            }
-            
-            const resultImagePart = candidate.content?.parts?.find(p => p.inlineData);
-            if (resultImagePart && resultImagePart.inlineData) {
-                const base64Image = resultImagePart.inlineData.data;
-                const imageUrl = `data:image/png;base64,${base64Image}`;
-
-                setSentences(prev => prev.map((s, i) => i === sentenceIndex ? { ...s, image: imageUrl } : s));
-            } else {
-                 throw new Error("API nie zwróciło danych obrazka, mimo że odpowiedź była pomyślna. Spróbuj ponownie, być może zmieniając treść zdania.");
-            }
+            setSentences(prev => prev.map((s, i) => i === sentenceIndex ? { ...s, image: imageUrl } : s));
 
         } catch (error) {
              console.error("Error generating image:", error);

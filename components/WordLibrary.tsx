@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Word } from '../types';
 import { Icon } from './ui/Icon';
-import { GoogleGenAI, Modality } from "@google/genai";
-import { uploadWordImage } from '../supabase';
+import { generateImage, uploadWordImage } from '../supabase';
 
 interface WordLibraryProps {
     words: Word[];
@@ -23,6 +22,7 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
     const [editingWord, setEditingWord] = useState<Word | null>(null);
     const [filterCategory, setFilterCategory] = useState<string>('Wszystkie');
     const [searchText, setSearchText] = useState('');
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     const [formData, setFormData] = useState({
         text: '',
@@ -81,23 +81,13 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
         setImageError(null);
 
         try {
-            // 1. Call Gemini API to generate image
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Prosty, przyjazny dziecku rysunek w stylu kreskówki, przedstawiający tylko i wyłącznie: ${formData.text}. Czyste linie, proste kolory, białe tło. Bez żadnego tekstu na obrazku.`;
+            // 1. Call Edge Function to generate image
+            const base64Image = await generateImage(formData.text);
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: { parts: [{ text: prompt }] },
-                config: { responseModalities: [Modality.IMAGE] }
-            });
-
-            // 2. Extract base64 image from response
-            const base64Image = response.candidates[0].content.parts[0].inlineData.data;
-
-            // 3. Upload to Supabase Storage
+            // 2. Upload to Supabase Storage
             const imageUrl = await uploadWordImage(base64Image, formData.text);
 
-            // 4. Set URL in form
+            // 3. Set URL in form
             setFormData({ ...formData, image_url: imageUrl });
 
         } catch (err: any) {
@@ -194,6 +184,26 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                 <option key={cat} value={cat}>{cat}</option>
                             ))}
                         </select>
+                        <div className="flex gap-2 border border-gray-300 rounded-lg p-1">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                                title="Widok siatki"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                </svg>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`p-2 rounded ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                                title="Widok listy"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -211,52 +221,103 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                     </div>
                 ) : (
                     <>
-                        {/* Words Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {filteredWords.map((word) => (
-                                <div
-                                    key={word.id}
-                                    className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-4"
-                                >
-                                    <div className="aspect-w-16 aspect-h-9 mb-3">
+                        {/* Words Grid View */}
+                        {viewMode === 'grid' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {filteredWords.map((word) => (
+                                    <div
+                                        key={word.id}
+                                        className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-4"
+                                    >
+                                        <div className="aspect-w-16 aspect-h-9 mb-3">
+                                            <img
+                                                src={word.image_url}
+                                                alt={word.text}
+                                                className="w-full h-32 object-cover rounded-lg"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Brak+obrazka';
+                                                }}
+                                            />
+                                        </div>
+                                        <h3 className="text-xl font-bold text-gray-800 mb-1">{word.text}</h3>
+                                        <p className="text-sm text-gray-600 mb-2">{word.category}</p>
+                                        <div className="flex gap-1 mb-3">
+                                            {word.syllables.map((syllable, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded"
+                                                >
+                                                    {syllable}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleOpenForm(word)}
+                                                className="flex-1 px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                                            >
+                                                Edytuj
+                                            </button>
+                                            <button
+                                                onClick={() => word.id && handleDelete(word.id)}
+                                                className="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
+                                            >
+                                                Usuń
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Words List View */}
+                        {viewMode === 'list' && (
+                            <div className="space-y-3">
+                                {filteredWords.map((word) => (
+                                    <div
+                                        key={word.id}
+                                        className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-4 flex items-center gap-4"
+                                    >
                                         <img
                                             src={word.image_url}
                                             alt={word.text}
-                                            className="w-full h-32 object-cover rounded-lg"
+                                            className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
                                             onError={(e) => {
                                                 (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Brak+obrazka';
                                             }}
                                         />
-                                    </div>
-                                    <h3 className="text-xl font-bold text-gray-800 mb-1">{word.text}</h3>
-                                    <p className="text-sm text-gray-600 mb-2">{word.category}</p>
-                                    <div className="flex gap-1 mb-3">
-                                        {word.syllables.map((syllable, idx) => (
-                                            <span
-                                                key={idx}
-                                                className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded"
+                                        <div className="flex-grow">
+                                            <h3 className="text-2xl font-bold text-gray-800 mb-1">{word.text}</h3>
+                                            <p className="text-sm text-gray-600 mb-2">{word.category}</p>
+                                            <div className="flex gap-1 flex-wrap">
+                                                {word.syllables.map((syllable, idx) => (
+                                                    <span
+                                                        key={idx}
+                                                        className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded"
+                                                    >
+                                                        {syllable}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 flex-shrink-0">
+                                            <button
+                                                onClick={() => handleOpenForm(word)}
+                                                className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
                                             >
-                                                {syllable}
-                                            </span>
-                                        ))}
+                                                Edytuj
+                                            </button>
+                                            <button
+                                                onClick={() => word.id && handleDelete(word.id)}
+                                                className="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
+                                            >
+                                                Usuń
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleOpenForm(word)}
-                                            className="flex-1 px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
-                                        >
-                                            Edytuj
-                                        </button>
-                                        <button
-                                            onClick={() => word.id && handleDelete(word.id)}
-                                            className="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
-                                        >
-                                            Usuń
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
 
                         {filteredWords.length === 0 && (
                             <div className="text-center py-12">

@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 import { LearningSet, Word } from './types';
-import { GoogleGenAI } from "@google/genai";
 
 // WAŻNE: Uzupełnij poniższe dane swoimi kluczami z pulpitu Supabase
 // Wejdź w Settings -> API w swoim projekcie Supabase.
@@ -172,22 +171,86 @@ export const uploadBookletImage = async (imageDataUrl: string, sentenceText: str
 // ============================================
 
 /**
- * Divide text into syllables using AI
+ * Divide text into syllables using Supabase Edge Function
  * @param text - The sentence to syllabify
  * @returns Syllabified text with middle dots in UPPERCASE (e.g., "FO·KA PLY·WA")
  */
 export const syllabifyText = async (text: string): Promise<string> => {
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Podziel na sylaby KAŻDE słowo w poniższym zdaniu. Oddziel sylaby za pomocą kropki środkowej (·), np. "KO·T". WSZYSTKIE LITERY MUSZĄ BYĆ WIELKIE (UPPERCASE). Zachowaj znaki interpunkcyjne. Zwróć tylko i wyłącznie zmodyfikowane zdanie. Zdanie: "${text}"`,
+        const { data, error } = await supabase.functions.invoke('syllabify-text', {
+            body: { text }
         });
 
-        const result = response.text.trim().replace(/·/g, '·').toUpperCase();
-        return result;
+        if (error) throw error;
+        if (!data?.syllabified) throw new Error('Invalid response from syllabify function');
+
+        return data.syllabified;
     } catch (err: any) {
         console.error('Syllabify text error:', err);
         throw new Error(err.message || 'Nie udało się podzielić tekstu na sylaby');
+    }
+};
+
+/**
+ * Generate image using Supabase Edge Function
+ * @param text - The word to generate image for
+ * @returns Base64 image data
+ */
+export const generateImage = async (text: string): Promise<string> => {
+    try {
+        const { data, error } = await supabase.functions.invoke('generate-image', {
+            body: { text }
+        });
+
+        if (error) throw error;
+        if (!data?.base64Image) throw new Error('Invalid response from generate-image function');
+
+        return data.base64Image;
+    } catch (err: any) {
+        console.error('Generate image error:', err);
+        throw new Error(err.message || 'Nie udało się wygenerować obrazka');
+    }
+};
+
+/**
+ * Generate sentences using Supabase Edge Function
+ * @param words - Array of words to base sentences on
+ * @returns Object with sentences array
+ */
+export const generateSentences = async (words: string[]): Promise<{ sentences: string[] }> => {
+    try {
+        const { data, error } = await supabase.functions.invoke('generate-sentences', {
+            body: { words }
+        });
+
+        if (error) throw error;
+        if (!data?.sentences) throw new Error('Invalid response from generate-sentences function');
+
+        return data;
+    } catch (err: any) {
+        console.error('Generate sentences error:', err);
+        throw new Error(err.message || 'Nie udało się wygenerować zdań');
+    }
+};
+
+/**
+ * Generate booklet image using Supabase Edge Function
+ * @param sentence - The sentence to illustrate
+ * @param characterImageBase64 - Optional base64 image of main character
+ * @returns Base64 image data
+ */
+export const generateBookletImage = async (sentence: string, characterImageBase64?: string): Promise<string> => {
+    try {
+        const { data, error } = await supabase.functions.invoke('generate-booklet-image', {
+            body: { sentence, characterImageBase64 }
+        });
+
+        if (error) throw error;
+        if (!data?.base64Image) throw new Error('Invalid response from generate-booklet-image function');
+
+        return data.base64Image;
+    } catch (err: any) {
+        console.error('Generate booklet image error:', err);
+        throw new Error(err.message || 'Nie udało się wygenerować obrazka dla książeczki');
     }
 };
