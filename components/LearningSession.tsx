@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ActiveSession, Word } from '../types';
+import { ActiveSession, Word, MemoryVariant } from '../types';
 import { Icon } from './ui/Icon';
 import { GoogleGenAI } from "@google/genai";
 
@@ -21,10 +21,10 @@ interface CardShowModeProps {
 
 const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [showSyllables, setShowSyllables] = useState(false);
+    const [showSyllables, setShowSyllables] = useState(true);
 
     useEffect(() => {
-        setShowSyllables(false);
+        setShowSyllables(true);
     }, [currentIndex]);
 
     const nextCard = () => {
@@ -267,31 +267,45 @@ const CompareWordsMode: React.FC<CompareWordsModeProps> = ({ words }) => {
 
 interface MemoryGameModeProps {
     words: Word[];
+    variant?: MemoryVariant;
 }
 
 type MemoryCard = {
     id: string; // unique ID for the card instance, e.g., 'word-1-a'
     wordId: string;
+    cardType: 'image' | 'word' | 'full'; // 'full' = obrazek + słowo
     isFlipped: boolean;
     isMatched: boolean;
 };
 
-const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words }) => {
+const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'image-image' }) => {
     const [cards, setCards] = useState<MemoryCard[]>([]);
     const [flippedCards, setFlippedCards] = useState<number[]>([]);
     const [isChecking, setIsChecking] = useState(false);
-    
-    const wordsById = useMemo(() => 
+
+    const wordsById = useMemo(() =>
         new Map(words.map(word => [word.id, word])),
     [words]);
 
     useEffect(() => {
-        const gameCards = words.flatMap(word => ([
-            { id: `${word.id}-a`, wordId: word.id, isFlipped: false, isMatched: false },
-            { id: `${word.id}-b`, wordId: word.id, isFlipped: false, isMatched: false }
-        ]));
+        let gameCards: MemoryCard[];
+
+        if (variant === 'image-word') {
+            // Wariant: obrazek + słowo
+            gameCards = words.flatMap(word => ([
+                { id: `${word.id}-image`, wordId: word.id, cardType: 'image' as const, isFlipped: false, isMatched: false },
+                { id: `${word.id}-word`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false }
+            ]));
+        } else {
+            // Wariant domyślny: obrazek + słowo na karcie (para identycznych)
+            gameCards = words.flatMap(word => ([
+                { id: `${word.id}-a`, wordId: word.id, cardType: 'full' as const, isFlipped: false, isMatched: false },
+                { id: `${word.id}-b`, wordId: word.id, cardType: 'full' as const, isFlipped: false, isMatched: false }
+            ]));
+        }
+
         setCards(shuffleArray(gameCards));
-    }, [words]);
+    }, [words, variant]);
 
     useEffect(() => {
         if (flippedCards.length === 2) {
@@ -354,12 +368,27 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words }) => {
                                     </div>
                                     {/* Front (visible when flipped) */}
                                     <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center bg-white rounded-lg shadow-md p-2 [transform:rotateY(180deg)]">
-                                        <div className="w-full h-2/3 flex items-center justify-center">
-                                            <img src={word.image_url} alt={word.text} className="max-w-full max-h-full object-contain rounded-t-lg"/>
-                                        </div>
-                                        <div className="w-full h-1/3 flex items-center justify-center border-t mt-1">
-                                            <p className="learning-text learning-text-card text-xl sm:text-2xl font-bold text-gray-800 text-center">{word.text}</p>
-                                        </div>
+                                        {card.cardType === 'image' ? (
+                                            // Wariant: tylko obrazek
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <img src={word.image_url} alt={word.text} className="max-w-full max-h-full object-contain rounded-lg"/>
+                                            </div>
+                                        ) : card.cardType === 'word' ? (
+                                            // Wariant: tylko słowo
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <p className="learning-text learning-text-card text-2xl sm:text-3xl font-bold text-gray-800 text-center px-2">{word.text}</p>
+                                            </div>
+                                        ) : (
+                                            // Wariant: obrazek + słowo
+                                            <>
+                                                <div className="w-full h-2/3 flex items-center justify-center">
+                                                    <img src={word.image_url} alt={word.text} className="max-w-full max-h-full object-contain rounded-t-lg"/>
+                                                </div>
+                                                <div className="w-full h-1/3 flex items-center justify-center border-t mt-1">
+                                                    <p className="learning-text learning-text-card text-xl sm:text-2xl font-bold text-gray-800 text-center">{word.text}</p>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -392,7 +421,7 @@ export const LearningSession: React.FC<LearningSessionProps> = ({ session, words
             case 'Porównaj słowa':
                 return <CompareWordsMode words={sessionWords} />;
             case 'Memory':
-                return <MemoryGameMode words={sessionWords} />;
+                return <MemoryGameMode words={sessionWords} variant={session.memoryVariant} />;
             default:
                 return <div className="w-full h-full flex flex-col items-center justify-center text-center">
                     <h2 className="text-2xl font-semibold">Tryb w budowie</h2>

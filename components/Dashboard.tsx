@@ -1,6 +1,7 @@
-import React from 'react';
-import { LearningSet, Word, SetType, LearningMode, ActiveSession } from '../types';
+import React, { useState } from 'react';
+import { LearningSet, Word, SetType, LearningMode, ActiveSession, MemoryVariant } from '../types';
 import { Icon } from './ui/Icon';
+import { MemoryVariantModal } from './MemoryVariantModal';
 
 interface DashboardProps {
     sets: LearningSet[];
@@ -23,7 +24,12 @@ const getSetIcon = (type: SetType) => {
     }
 }
 
-const LearningModeButton: React.FC<{mode: LearningMode, set: LearningSet, onStart: (session: ActiveSession) => void}> = ({mode, set, onStart}) => {
+const LearningModeButton: React.FC<{
+    mode: LearningMode,
+    set: LearningSet,
+    onStart: (session: ActiveSession) => void,
+    onMemoryClick?: () => void
+}> = ({mode, set, onStart, onMemoryClick}) => {
     const isModeAvailable = () => {
         switch(mode) {
             case LearningMode.CardShow:
@@ -41,14 +47,22 @@ const LearningModeButton: React.FC<{mode: LearningMode, set: LearningSet, onStar
                 return false;
         }
     }
-    
+
     if (!isModeAvailable()) {
         return null;
     }
 
+    const handleClick = () => {
+        if (mode === LearningMode.Memory && onMemoryClick) {
+            onMemoryClick();
+        } else {
+            onStart({ set, mode });
+        }
+    };
+
     return (
         <button
-            onClick={() => onStart({ set, mode })}
+            onClick={handleClick}
             className="flex items-center space-x-2 bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-medium hover:bg-indigo-200 transition-colors"
         >
             <Icon name="play" className="w-4 h-4" />
@@ -59,15 +73,24 @@ const LearningModeButton: React.FC<{mode: LearningMode, set: LearningSet, onStar
 
 
 export const Dashboard: React.FC<DashboardProps> = ({ sets, words, loading, error, onStartSession, onCreateSet, onEditSet, onDeleteSet }) => {
+    const [memoryModalSet, setMemoryModalSet] = useState<LearningSet | null>(null);
+
     const getWordsForSet = (set: LearningSet) => {
         return set.wordIds.map(id => words.find(w => w.id === id)).filter(Boolean) as Word[];
     };
-    
+
     const handleDelete = (set: LearningSet) => {
         if(set.id && window.confirm(`Czy na pewno chcesz usunąć zestaw "${set.name}"?`)) {
             onDeleteSet(set.id);
         }
     }
+
+    const handleMemoryVariantSelect = (variant: MemoryVariant) => {
+        if (memoryModalSet) {
+            onStartSession({ set: memoryModalSet, mode: LearningMode.Memory, memoryVariant: variant });
+            setMemoryModalSet(null);
+        }
+    };
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
@@ -126,12 +149,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ sets, words, loading, erro
                                     <LearningModeButton mode={LearningMode.Booklet} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.SyllablesInMotion} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.CompareWords} set={set} onStart={onStartSession} />
-                                    <LearningModeButton mode={LearningMode.Memory} set={set} onStart={onStartSession} />
+                                    <LearningModeButton mode={LearningMode.Memory} set={set} onStart={onStartSession} onMemoryClick={() => setMemoryModalSet(set)} />
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
+            )}
+
+            {memoryModalSet && (
+                <MemoryVariantModal
+                    onSelect={handleMemoryVariantSelect}
+                    onCancel={() => setMemoryModalSet(null)}
+                />
             )}
         </div>
     );
