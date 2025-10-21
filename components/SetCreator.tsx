@@ -259,7 +259,7 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                             className={`flex items-center justify-between p-2 rounded-md cursor-pointer mb-1 ${selectedWordIds.includes(word.id) ? 'bg-indigo-100 text-indigo-800' : 'hover:bg-gray-200'}`}
                         >
                             <div className="flex items-center">
-                                <img src={word.image} alt={word.text} className="w-10 h-10 rounded-md mr-3 object-cover"/>
+                                <img src={word.image_url} alt={word.text} className="w-10 h-10 rounded-md mr-3 object-cover"/>
                                 <span>{word.text}</span>
                             </div>
                             {selectedWordIds.includes(word.id) && <span className="text-indigo-600 font-bold">✓</span>}
@@ -315,7 +315,7 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                             }}
                             className={`flex items-center space-x-2 p-2 rounded-lg border-2 transition-colors ${mainCharacterWordId === word.id ? 'border-indigo-500 bg-indigo-50' : 'border-transparent bg-gray-100 hover:bg-gray-200'}`}
                         >
-                            <img src={word.image} alt={word.text} className="w-8 h-8 rounded-md object-cover"/>
+                            <img src={word.image_url} alt={word.text} className="w-8 h-8 rounded-md object-cover"/>
                             <span>{word.text}</span>
                         </button>
                     ))}

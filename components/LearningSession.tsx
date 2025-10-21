@@ -47,7 +47,7 @@ const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
                 className="w-full max-w-4xl aspect-[4/3] bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 cursor-pointer transition-all duration-300"
                 onClick={toggleSyllables}
             >
-                <img src={currentWord.image} alt={currentWord.text} className="max-w-full max-h-[65%] object-contain rounded-lg" />
+                <img src={currentWord.image_url} alt={currentWord.text} className="max-w-full max-h-[65%] object-contain rounded-lg" />
                 <div className="mt-8 text-6xl md:text-8xl font-bold tracking-wider text-center h-28 flex items-center">
                     {showSyllables ? (
                         <p className="text-indigo-600 animate-[fadeIn_0.3s_ease-in-out]">
@@ -244,7 +244,7 @@ const CompareWordsMode: React.FC<CompareWordsModeProps> = ({ words }) => {
             <div className="flex flex-wrap items-stretch justify-center gap-4 sm:gap-8">
                 {words.map(word => (
                     <div key={word.id} className="bg-white rounded-2xl shadow-xl flex flex-col items-center p-6 w-52 sm:w-64">
-                        <img src={word.image} alt={word.text} className="w-full aspect-video object-cover rounded-lg mb-4" />
+                        <img src={word.image_url} alt={word.text} className="w-full aspect-video object-cover rounded-lg mb-4" />
                         <p className="text-3xl sm:text-4xl font-bold text-gray-800 tracking-wider">{word.text}</p>
                     </div>
                 ))}
@@ -344,7 +344,7 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words }) => {
                                     {/* Front (visible when flipped) */}
                                     <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center bg-white rounded-lg shadow-md p-2 [transform:rotateY(180deg)]">
                                         <div className="w-full h-2/3 flex items-center justify-center">
-                                            <img src={word.image} alt={word.text} className="max-w-full max-h-full object-contain rounded-t-lg"/>
+                                            <img src={word.image_url} alt={word.text} className="max-w-full max-h-full object-contain rounded-t-lg"/>
                                         </div>
                                         <div className="w-full h-1/3 flex items-center justify-center border-t mt-1">
                                             <p className="text-xl sm:text-2xl font-bold text-gray-800 text-center">{word.text}</p>

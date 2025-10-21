@@ -25,7 +25,7 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
     const [formData, setFormData] = useState({
         text: '',
         category: '',
-        image: '',
+        image_url: '',
         syllables: ['']
     });
 
@@ -43,7 +43,7 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
             setFormData({
                 text: word.text,
                 category: word.category,
-                image: word.image,
+                image_url: word.image_url,
                 syllables: word.syllables
             });
         } else {
@@ -51,7 +51,7 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
             setFormData({
                 text: '',
                 category: '',
-                image: '',
+                image_url: '',
                 syllables: ['']
             });
         }
@@ -69,7 +69,7 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
         const wordData: Partial<Word> = {
             text: formData.text,
             category: formData.category,
-            image: formData.image,
+            image_url: formData.image_url,
             syllables: formData.syllables.filter(s => s.trim() !== '')
         };
 
@@ -169,7 +169,7 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                 >
                                     <div className="aspect-w-16 aspect-h-9 mb-3">
                                         <img
-                                            src={word.image}
+                                            src={word.image_url}
                                             alt={word.text}
                                             className="w-full h-32 object-cover rounded-lg"
                                             onError={(e) => {
@@ -263,8 +263,8 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                             <input
                                                 type="url"
                                                 required
-                                                value={formData.image}
-                                                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                                                value={formData.image_url}
+                                                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                                 placeholder="https://example.com/image.jpg"
                                             />

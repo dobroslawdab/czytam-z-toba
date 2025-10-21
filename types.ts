@@ -2,7 +2,7 @@ export interface Word {
   id?: number; // Optional for new words, assigned by Supabase
   created_at?: string;
   text: string;
-  image: string;
+  image_url: string; // Changed from 'image' to match Supabase column name
   category: string;
   syllables: string[];
 }
