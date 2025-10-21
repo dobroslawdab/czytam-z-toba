@@ -1,5 +1,6 @@
 export interface Word {
-  id: string;
+  id?: number; // Optional for new words, assigned by Supabase
+  created_at?: string;
   text: string;
   image: string;
   category: string;
@@ -34,6 +35,7 @@ export enum View {
   LearningSession,
   MethodGuide,
   ProgressJournal,
+  WordLibrary,
 }
 
 export enum LearningMode {

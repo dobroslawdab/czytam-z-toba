@@ -1,26 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { initialWordLibrary } from './constants';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import { LearningSet, Word, View, ActiveSession } from './types';
 import { Dashboard } from './components/Dashboard';
 import { SetCreator } from './components/SetCreator';
 import { LearningSession } from './components/LearningSession';
+import { WordLibrary } from './components/WordLibrary';
 import { Icon } from './components/ui/Icon';
-import { supabase } from './supabase';
+import { supabase, fetchWords, createWord, updateWord, deleteWord } from './supabase';
 
 
 const App: React.FC = () => {
-    const [words, setWords] = useLocalStorage<Word[]>('word-library', initialWordLibrary);
+    const [words, setWords] = useState<Word[]>([]);
     const [sets, setSets] = useState<LearningSet[]>([]);
     const [loading, setLoading] = useState(true);
+    const [wordsLoading, setWordsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [wordsError, setWordsError] = useState<string | null>(null);
     const [currentView, setCurrentView] = useState<View>(View.Dashboard);
     const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
     const [sessionImages, setSessionImages] = useState<Record<string, string>>({});
     const [editingSet, setEditingSet] = useState<LearningSet | null>(null);
 
     useEffect(() => {
-        const fetchSets = async () => {
+        const fetchData = async () => {
+            // Fetch learning sets
             setLoading(true);
             setError(null);
             try {
@@ -39,9 +42,24 @@ const App: React.FC = () => {
             } finally {
                 setLoading(false);
             }
+
+            // Fetch words
+            setWordsLoading(true);
+            setWordsError(null);
+            try {
+                const wordsData = await fetchWords();
+                setWords(wordsData);
+            } catch (err: any) {
+                console.error('Error fetching words:', err);
+                setWordsError(`Nie udało się pobrać słów z bazy danych. Błąd: ${err.message || 'Wystąpił nieznany błąd.'}`);
+                // Fallback to initial library if fetch fails
+                setWords(initialWordLibrary as any);
+            } finally {
+                setWordsLoading(false);
+            }
         };
 
-        fetchSets();
+        fetchData();
     }, []);
 
     const handleSaveSet = async (set: Partial<LearningSet>, images: Record<number, string>) => {
@@ -131,23 +149,50 @@ const App: React.FC = () => {
         setCurrentView(View.SetCreator);
     };
 
+    const handleSaveWord = async (word: Partial<Word>) => {
+        try {
+            if (word.id) {
+                // Update existing word
+                const updatedWord = await updateWord(word.id, word);
+                setWords(prev => prev.map(w => w.id === updatedWord.id ? updatedWord : w));
+            } else {
+                // Create new word
+                const newWord = await createWord(word as Omit<Word, 'id' | 'created_at'>);
+                setWords(prev => [newWord, ...prev]);
+            }
+        } catch (err: any) {
+            console.error("Error saving word:", err);
+            alert(`Błąd podczas zapisywania słowa: ${err.message || 'Wystąpił nieznany błąd.'}`);
+        }
+    };
+
+    const handleDeleteWord = async (id: number) => {
+        try {
+            await deleteWord(id);
+            setWords(prev => prev.filter(w => w.id !== id));
+        } catch (err: any) {
+            console.error("Error deleting word:", err);
+            alert(`Nie udało się usunąć słowa: ${err.message || 'Wystąpił nieznany błąd.'}`);
+        }
+    };
+
     const renderView = () => {
         switch (currentView) {
             case View.Dashboard:
-                return <Dashboard 
-                    sets={sets} 
+                return <Dashboard
+                    sets={sets}
                     words={words}
                     loading={loading}
-                    error={error} 
-                    onStartSession={handleStartSession} 
+                    error={error}
+                    onStartSession={handleStartSession}
                     onCreateSet={handleStartCreateSet}
                     onEditSet={handleStartEditSet}
                     onDeleteSet={handleDeleteSet}
                 />;
             case View.SetCreator:
-                return <SetCreator 
-                    words={words} 
-                    onSave={handleSaveSet} 
+                return <SetCreator
+                    words={words}
+                    onSave={handleSaveSet}
                     onCancel={() => setCurrentView(View.Dashboard)}
                     set_to_edit={editingSet}
                 />;
@@ -157,13 +202,21 @@ const App: React.FC = () => {
                 }
                 setCurrentView(View.Dashboard);
                 return null;
+            case View.WordLibrary:
+                return <WordLibrary
+                    words={words}
+                    loading={wordsLoading}
+                    error={wordsError}
+                    onSaveWord={handleSaveWord}
+                    onDeleteWord={handleDeleteWord}
+                />;
             default:
-                return <Dashboard 
-                    sets={sets} 
-                    words={words} 
+                return <Dashboard
+                    sets={sets}
+                    words={words}
                     loading={loading}
                     error={error}
-                    onStartSession={handleStartSession} 
+                    onStartSession={handleStartSession}
                     onCreateSet={handleStartCreateSet}
                     onEditSet={handleStartEditSet}
                     onDeleteSet={handleDeleteSet}
@@ -194,6 +247,7 @@ const App: React.FC = () => {
                 </div>
                 <nav className="space-y-2">
                     <NavItem icon="home" label="Pulpit" view={View.Dashboard} />
+                    <NavItem icon="book" label="Baza słów" view={View.WordLibrary} />
                     <NavItem icon="guide" label="Przewodnik" view={View.MethodGuide} />
                     <NavItem icon="chart" label="Postępy" view={View.ProgressJournal} />
                     <NavItem icon="plus" label="Stwórz zestaw" onClick={handleStartCreateSet} />
