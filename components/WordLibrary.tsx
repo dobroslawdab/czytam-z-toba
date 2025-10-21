@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Word } from '../types';
 import { Icon } from './ui/Icon';
+import { GoogleGenAI, Modality } from "@google/genai";
+import { uploadWordImage } from '../supabase';
 
 interface WordLibraryProps {
     words: Word[];
@@ -29,6 +31,10 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
         syllables: ['']
     });
 
+    // AI Image Generation state
+    const [generatingImage, setGeneratingImage] = useState(false);
+    const [imageError, setImageError] = useState<string | null>(null);
+
     const categories = ['Wszystkie', ...Array.from(new Set(words.map(w => w.category)))];
 
     const filteredWords = words.filter(word => {
@@ -56,15 +62,60 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
             });
         }
         setIsFormOpen(true);
+        setImageError(null);
     };
 
     const handleCloseForm = () => {
         setIsFormOpen(false);
         setEditingWord(null);
+        setImageError(null);
+    };
+
+    const handleGenerateImage = async () => {
+        if (!formData.text.trim()) {
+            setImageError('Najpierw wpisz słowo, którego obrazek chcesz wygenerować');
+            return;
+        }
+
+        setGeneratingImage(true);
+        setImageError(null);
+
+        try {
+            // 1. Call Gemini API to generate image
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const prompt = `Prosty, przyjazny dziecku rysunek w stylu kreskówki, przedstawiający tylko i wyłącznie: ${formData.text}. Czyste linie, proste kolory, białe tło. Bez żadnego tekstu na obrazku.`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts: [{ text: prompt }] },
+                config: { responseModalities: [Modality.IMAGE] }
+            });
+
+            // 2. Extract base64 image from response
+            const base64Image = response.candidates[0].content.parts[0].inlineData.data;
+
+            // 3. Upload to Supabase Storage
+            const imageUrl = await uploadWordImage(base64Image, formData.text);
+
+            // 4. Set URL in form
+            setFormData({ ...formData, image_url: imageUrl });
+
+        } catch (err: any) {
+            console.error('Image generation error:', err);
+            setImageError(err.message || 'Nie udało się wygenerować obrazka. Spróbuj ponownie.');
+        } finally {
+            setGeneratingImage(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validate that image is generated
+        if (!formData.image_url) {
+            setImageError('Musisz wygenerować obrazek przed zapisaniem słowa!');
+            return;
+        }
 
         const wordData: Partial<Word> = {
             text: formData.text,
@@ -255,19 +306,73 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                             />
                                         </div>
 
-                                        {/* Image URL */}
+                                        {/* AI Image Generation */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                URL obrazka *
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Obrazek *
                                             </label>
-                                            <input
-                                                type="url"
-                                                required
-                                                value={formData.image_url}
-                                                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                placeholder="https://example.com/image.jpg"
-                                            />
+
+                                            {/* Image Preview */}
+                                            {formData.image_url && (
+                                                <div className="mb-3 p-2 border-2 border-gray-200 rounded-lg">
+                                                    <img
+                                                        src={formData.image_url}
+                                                        alt="Podgląd"
+                                                        className="w-full h-48 object-contain rounded-lg bg-white"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Błąd+ładowania';
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Error Message */}
+                                            {imageError && (
+                                                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                                                    {imageError}
+                                                </div>
+                                            )}
+
+                                            {/* Generate / Regenerate Button */}
+                                            <button
+                                                type="button"
+                                                onClick={handleGenerateImage}
+                                                disabled={generatingImage || !formData.text.trim()}
+                                                className={`w-full px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                                                    generatingImage
+                                                        ? 'bg-gray-300 cursor-wait'
+                                                        : formData.image_url
+                                                            ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                                                            : 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed'
+                                                }`}
+                                            >
+                                                {generatingImage ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                                        <span>Generuję obrazek...</span>
+                                                    </>
+                                                ) : formData.image_url ? (
+                                                    <>
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                        </svg>
+                                                        <span>Regeneruj obrazek</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                                        </svg>
+                                                        <span>Generuj obrazek AI</span>
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            {!formData.text.trim() && (
+                                                <p className="mt-2 text-xs text-gray-500">
+                                                    Najpierw wpisz słowo, aby wygenerować obrazek
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* Syllables */}

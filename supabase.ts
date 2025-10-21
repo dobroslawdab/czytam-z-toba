@@ -77,3 +77,49 @@ export const deleteWord = async (id: number) => {
 
     if (error) throw error;
 };
+
+// ============================================
+// IMAGE UPLOAD Functions
+// ============================================
+
+/**
+ * Upload generated AI image to Supabase Storage
+ * @param base64Data - Base64 encoded image data (without data:image/png;base64, prefix)
+ * @param wordText - The word text (used for filename)
+ * @returns Public URL of the uploaded image
+ */
+export const uploadWordImage = async (base64Data: string, wordText: string): Promise<string> => {
+    try {
+        // Convert base64 to Blob
+        const base64Response = await fetch(`data:image/png;base64,${base64Data}`);
+        const blob = await base64Response.blob();
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const sanitizedWordText = wordText.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const fileName = `words/${timestamp}-${sanitizedWordText}.png`;
+
+        // Upload to Supabase Storage bucket 'set_images'
+        const { data, error } = await supabase.storage
+            .from('set_images')
+            .upload(fileName, blob, {
+                contentType: 'image/png',
+                upsert: false
+            });
+
+        if (error) {
+            console.error('Supabase Storage upload error:', error);
+            throw new Error(`Nie udało się zapisać obrazka: ${error.message}`);
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+            .from('set_images')
+            .getPublicUrl(fileName);
+
+        return publicUrl;
+    } catch (err: any) {
+        console.error('Upload word image error:', err);
+        throw new Error(err.message || 'Nie udało się przesłać obrazka do storage');
+    }
+};
