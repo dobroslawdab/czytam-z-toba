@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash-image',
       contents: { parts },
       config: { responseModalities: [Modality.IMAGE] }
     });
