@@ -24,13 +24,16 @@ Deno.serve(async (req) => {
     // Get API key from environment variables
     const apiKey = Deno.env.get('CZYTAM_GEMINI_API_KEY');
     if (!apiKey) {
+      console.error('API key not found in environment variables');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Call Gemini API to generate image (same as local version)
+    console.log(`Generating image for text: "${text}"`);
+
+    // Call Gemini API to generate image
     const ai = new GoogleGenAI({ apiKey });
     const prompt = `Prosty, przyjazny dziecku rysunek w stylu kreskówki, przedstawiający tylko i wyłącznie: ${text}. Czyste linie, proste kolory, białe tło. Bez żadnego tekstu na obrazku.`;
 
@@ -40,8 +43,30 @@ Deno.serve(async (req) => {
       config: { responseModalities: [Modality.IMAGE] }
     });
 
-    // Extract base64 image from response
-    const base64Image = response.candidates[0].content.parts[0].inlineData.data;
+    // Validate response structure
+    if (!response) {
+      throw new Error('Empty response from Gemini API');
+    }
+
+    if (!response.candidates || response.candidates.length === 0) {
+      console.error('No candidates in response:', JSON.stringify(response));
+      throw new Error('No image candidates generated');
+    }
+
+    const candidate = response.candidates[0];
+    if (!candidate?.content?.parts || candidate.content.parts.length === 0) {
+      console.error('Invalid candidate structure:', JSON.stringify(candidate));
+      throw new Error('Invalid response structure from Gemini API');
+    }
+
+    const part = candidate.content.parts[0];
+    if (!part?.inlineData?.data) {
+      console.error('No inline data in response part:', JSON.stringify(part));
+      throw new Error('No image data in response');
+    }
+
+    const base64Image = part.inlineData.data;
+    console.log(`Successfully generated image, size: ${base64Image.length} chars`);
 
     return new Response(
       JSON.stringify({ base64Image }),
@@ -50,8 +75,17 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Image generation error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to generate image' }),
+      JSON.stringify({
+        error: error.message || 'Failed to generate image',
+        details: error.toString()
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

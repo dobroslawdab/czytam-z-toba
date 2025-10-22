@@ -198,16 +198,39 @@ export const syllabifyText = async (text: string): Promise<string> => {
  */
 export const generateImage = async (text: string): Promise<string> => {
     try {
+        console.log(`Calling generate-image Edge Function for: "${text}"`);
+
         const { data, error } = await supabase.functions.invoke('generate-image', {
             body: { text }
         });
 
-        if (error) throw error;
-        if (!data?.base64Image) throw new Error('Invalid response from generate-image function');
+        if (error) {
+            console.error('Edge Function error:', {
+                message: error.message,
+                status: error.status,
+                details: error
+            });
+            throw new Error(`Edge Function error: ${error.message || 'Unknown error'}`);
+        }
 
+        if (!data) {
+            console.error('Empty response from Edge Function');
+            throw new Error('Empty response from generate-image function');
+        }
+
+        if (!data.base64Image) {
+            console.error('Invalid response structure:', data);
+            if (data.error) {
+                throw new Error(`Gemini API error: ${data.error}${data.details ? ` (${data.details})` : ''}`);
+            }
+            throw new Error('Invalid response from generate-image function');
+        }
+
+        console.log(`Successfully received image, size: ${data.base64Image.length} chars`);
         return data.base64Image;
     } catch (err: any) {
         console.error('Generate image error:', err);
+        console.error('Error stack:', err.stack);
         throw new Error(err.message || 'Nie udało się wygenerować obrazka');
     }
 };
@@ -241,16 +264,39 @@ export const generateSentences = async (words: string[]): Promise<{ sentences: s
  */
 export const generateBookletImage = async (sentence: string, characterImageBase64?: string): Promise<string> => {
     try {
+        console.log(`Calling generate-booklet-image Edge Function for: "${sentence}"`);
+
         const { data, error } = await supabase.functions.invoke('generate-booklet-image', {
             body: { sentence, characterImageBase64 }
         });
 
-        if (error) throw error;
-        if (!data?.base64Image) throw new Error('Invalid response from generate-booklet-image function');
+        if (error) {
+            console.error('Edge Function error:', {
+                message: error.message,
+                status: error.status,
+                details: error
+            });
+            throw new Error(`Edge Function error: ${error.message || 'Unknown error'}`);
+        }
 
+        if (!data) {
+            console.error('Empty response from Edge Function');
+            throw new Error('Empty response from generate-booklet-image function');
+        }
+
+        if (!data.base64Image) {
+            console.error('Invalid response structure:', data);
+            if (data.error) {
+                throw new Error(`Gemini API error: ${data.error}${data.details ? ` (${data.details})` : ''}`);
+            }
+            throw new Error('Invalid response from generate-booklet-image function');
+        }
+
+        console.log(`Successfully received booklet image, size: ${data.base64Image.length} chars`);
         return data.base64Image;
     } catch (err: any) {
         console.error('Generate booklet image error:', err);
+        console.error('Error stack:', err.stack);
         throw new Error(err.message || 'Nie udało się wygenerować obrazka dla książeczki');
     }
 };

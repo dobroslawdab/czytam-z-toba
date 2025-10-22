@@ -30,7 +30,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Call Gemini API to generate booklet image (same as local version)
+    console.log(`Generating booklet image for sentence: "${sentence}"`);
+
+    // Call Gemini API to generate booklet image
     const ai = new GoogleGenAI({ apiKey });
     const prompt = `Prosty, przyjazny dziecku rysunek w stylu kreskówki ilustrujący zdanie: "${sentence}". Czyste linie, proste kolory, białe tło. Bez żadnego tekstu na obrazku. ${characterImageBase64 ? 'Użyj postaci z referencyjnego obrazka.' : ''}`;
 
@@ -52,8 +54,30 @@ Deno.serve(async (req) => {
       config: { responseModalities: [Modality.IMAGE] }
     });
 
-    // Extract base64 image from response
-    const base64Image = response.candidates[0].content.parts[0].inlineData.data;
+    // Validate response structure
+    if (!response) {
+      throw new Error('Empty response from Gemini API');
+    }
+
+    if (!response.candidates || response.candidates.length === 0) {
+      console.error('No candidates in response:', JSON.stringify(response));
+      throw new Error('No image candidates generated');
+    }
+
+    const candidate = response.candidates[0];
+    if (!candidate?.content?.parts || candidate.content.parts.length === 0) {
+      console.error('Invalid candidate structure:', JSON.stringify(candidate));
+      throw new Error('Invalid response structure from Gemini API');
+    }
+
+    const part = candidate.content.parts[0];
+    if (!part?.inlineData?.data) {
+      console.error('No inline data in response part:', JSON.stringify(part));
+      throw new Error('No image data in response');
+    }
+
+    const base64Image = part.inlineData.data;
+    console.log(`Successfully generated booklet image, size: ${base64Image.length} chars`);
 
     return new Response(
       JSON.stringify({ base64Image }),
@@ -62,8 +86,17 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Booklet image generation error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to generate booklet image' }),
+      JSON.stringify({
+        error: error.message || 'Failed to generate booklet image',
+        details: error.toString()
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
