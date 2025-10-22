@@ -35,7 +35,14 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
     const [generatingImage, setGeneratingImage] = useState(false);
     const [imageError, setImageError] = useState<string | null>(null);
 
+    // New category management
+    const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+
     const categories = ['Wszystkie', ...Array.from(new Set(words.map(w => w.category)))];
+
+    // Categories for form dropdown (without 'Wszystkie', sorted alphabetically)
+    const formCategories = Array.from(new Set(words.map(w => w.category))).sort();
 
     const filteredWords = words.filter(word => {
         const matchesCategory = filterCategory === 'Wszystkie' || word.category === filterCategory;
@@ -63,12 +70,41 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
         }
         setIsFormOpen(true);
         setImageError(null);
+        setShowNewCategoryInput(false);
+        setNewCategoryName('');
     };
 
     const handleCloseForm = () => {
         setIsFormOpen(false);
         setEditingWord(null);
         setImageError(null);
+        setShowNewCategoryInput(false);
+        setNewCategoryName('');
+    };
+
+    const handleCategoryChange = (value: string) => {
+        if (value === '__new__') {
+            setShowNewCategoryInput(true);
+            setFormData({ ...formData, category: '' });
+        } else {
+            setShowNewCategoryInput(false);
+            setNewCategoryName('');
+            setFormData({ ...formData, category: value });
+        }
+    };
+
+    const handleConfirmNewCategory = () => {
+        if (newCategoryName.trim()) {
+            setFormData({ ...formData, category: newCategoryName.trim() });
+            setShowNewCategoryInput(false);
+            setNewCategoryName('');
+        }
+    };
+
+    const handleCancelNewCategory = () => {
+        setShowNewCategoryInput(false);
+        setNewCategoryName('');
+        setFormData({ ...formData, category: '' });
     };
 
     const handleGenerateImage = async () => {
@@ -357,14 +393,49 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                                 Kategoria *
                                             </label>
-                                            <input
-                                                type="text"
-                                                required
-                                                value={formData.category}
-                                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                placeholder="np. Rodzina"
-                                            />
+
+                                            {!showNewCategoryInput ? (
+                                                <select
+                                                    required
+                                                    value={formData.category}
+                                                    onChange={(e) => handleCategoryChange(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                >
+                                                    <option value="">Wybierz kategorię...</option>
+                                                    {formCategories.map(cat => (
+                                                        <option key={cat} value={cat}>{cat}</option>
+                                                    ))}
+                                                    <option value="__new__">➕ Dodaj nową kategorię...</option>
+                                                </select>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    <input
+                                                        type="text"
+                                                        value={newCategoryName}
+                                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                        placeholder="Wpisz nazwę nowej kategorii..."
+                                                        autoFocus
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleConfirmNewCategory}
+                                                            disabled={!newCategoryName.trim()}
+                                                            className="flex-1 px-3 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                                        >
+                                                            ✓ Zatwierdź
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleCancelNewCategory}
+                                                            className="flex-1 px-3 py-2 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors"
+                                                        >
+                                                            ✗ Anuluj
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* AI Image Generation */}
