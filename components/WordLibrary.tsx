@@ -34,6 +34,7 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
     // AI Image Generation state
     const [generatingImage, setGeneratingImage] = useState(false);
     const [imageError, setImageError] = useState<string | null>(null);
+    const [retryAttempt, setRetryAttempt] = useState<{current: number, max: number} | null>(null);
 
     // New category management
     const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
@@ -115,10 +116,14 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
 
         setGeneratingImage(true);
         setImageError(null);
+        setRetryAttempt(null);
 
         try {
-            // 1. Call Edge Function to generate image
-            const base64Image = await generateImage(formData.text);
+            // 1. Call Edge Function to generate image with retry callback
+            const base64Image = await generateImage(
+                formData.text,
+                (attempt, maxRetries) => setRetryAttempt({ current: attempt, max: maxRetries })
+            );
 
             // 2. Upload to Supabase Storage
             const imageUrl = await uploadWordImage(base64Image, formData.text);
@@ -131,6 +136,7 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
             setImageError(err.message || 'Nie udało się wygenerować obrazka. Spróbuj ponownie.');
         } finally {
             setGeneratingImage(false);
+            setRetryAttempt(null);
         }
     };
 
@@ -481,7 +487,10 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                                 {generatingImage ? (
                                                     <>
                                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                                        <span>Generuję obrazek...</span>
+                                                        <span>
+                                                            Generuję obrazek...
+                                                            {retryAttempt && ` (próba ${retryAttempt.current}/${retryAttempt.max})`}
+                                                        </span>
                                                     </>
                                                 ) : formData.image_url ? (
                                                     <>

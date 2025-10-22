@@ -26,6 +26,7 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     const [error, setError] = useState('');
     const [mainCharacterWordId, setMainCharacterWordId] = useState<string | null>(null);
     const [characterReferenceImage, setCharacterReferenceImage] = useState<string | null>(null);
+    const [retryAttempt, setRetryAttempt] = useState<{current: number, max: number} | null>(null);
 
     useEffect(() => {
         if (set_to_edit) {
@@ -210,14 +211,19 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
 
         setGeneratingImageIndex(sentenceIndex);
         setError('');
+        setRetryAttempt(null);
         try {
             const sentenceText = sentences[sentenceIndex].text;
 
             // Extract base64 data from data URL
             const characterImageBase64 = characterReferenceImage.split(',')[1];
 
-            // Call Edge Function to generate booklet image
-            const base64Image = await generateBookletImage(sentenceText, characterImageBase64);
+            // Call Edge Function to generate booklet image with retry callback
+            const base64Image = await generateBookletImage(
+                sentenceText,
+                characterImageBase64,
+                (attempt, maxRetries) => setRetryAttempt({ current: attempt, max: maxRetries })
+            );
             const imageUrl = `data:image/png;base64,${base64Image}`;
 
             setSentences(prev => prev.map((s, i) => i === sentenceIndex ? { ...s, image: imageUrl } : s));
@@ -228,6 +234,7 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
              setError(message);
         } finally {
             setGeneratingImageIndex(null);
+            setRetryAttempt(null);
         }
     }
 
@@ -416,7 +423,9 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                                             disabled={generatingImageIndex !== null}
                                             className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 disabled:bg-gray-200 disabled:cursor-wait"
                                         >
-                                            {generatingImageIndex === index ? '...' : (sentence.image ? 'Zmień' : 'Generuj obrazek')}
+                                            {generatingImageIndex === index
+                                                ? `Generuję...${retryAttempt ? ` (${retryAttempt.current}/${retryAttempt.max})` : ''}`
+                                                : (sentence.image ? 'Zmień' : 'Generuj obrazek')}
                                         </button>
                                         <button onClick={() => handleRemoveSentence(index)} className="text-gray-400 hover:text-red-500 p-1">
                                             <Icon name="trash" className="w-4 h-4" />

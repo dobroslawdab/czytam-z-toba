@@ -33,6 +33,56 @@ export const supabase = createClient<({
 })>(supabaseUrl, supabaseAnonKey);
 
 // ============================================
+// RETRY UTILITY
+// ============================================
+
+/**
+ * Retry a function with exponential backoff
+ * @param fn - The async function to retry
+ * @param maxRetries - Maximum number of retry attempts (default: 3)
+ * @param onRetry - Callback called on each retry attempt
+ * @returns Result of the function
+ */
+async function retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    onRetry?: (attempt: number, maxRetries: number) => void
+): Promise<T> {
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            if (attempt > 1 && onRetry) {
+                onRetry(attempt, maxRetries);
+            }
+            return await fn();
+        } catch (error: any) {
+            lastError = error;
+
+            // Check if error is retryable (timeout, network error, etc)
+            const isRetryable =
+                error.message?.toLowerCase().includes('timeout') ||
+                error.message?.toLowerCase().includes('fetch') ||
+                error.status === 504 ||
+                error.status === 524 ||
+                error.message?.toLowerCase().includes('earlydrop') ||
+                error.message?.toLowerCase().includes('network');
+
+            if (!isRetryable || attempt === maxRetries) {
+                throw error;
+            }
+
+            // Exponential backoff: 1s, 2s, 4s
+            const delay = Math.pow(2, attempt - 1) * 1000;
+            console.log(`Retry attempt ${attempt}/${maxRetries} after ${delay}ms delay`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+
+    throw lastError;
+}
+
+// ============================================
 // WORDS CRUD Functions
 // ============================================
 
@@ -196,8 +246,11 @@ export const syllabifyText = async (text: string): Promise<string> => {
  * @param text - The word to generate image for
  * @returns Base64 image data
  */
-export const generateImage = async (text: string): Promise<string> => {
-    try {
+export const generateImage = async (
+    text: string,
+    onRetry?: (attempt: number, maxRetries: number) => void
+): Promise<string> => {
+    return retryWithBackoff(async () => {
         console.log(`Calling generate-image Edge Function for: "${text}"`);
 
         const { data, error } = await supabase.functions.invoke('generate-image', {
@@ -228,11 +281,7 @@ export const generateImage = async (text: string): Promise<string> => {
 
         console.log(`Successfully received image, size: ${data.base64Image.length} chars`);
         return data.base64Image;
-    } catch (err: any) {
-        console.error('Generate image error:', err);
-        console.error('Error stack:', err.stack);
-        throw new Error(err.message || 'Nie udało się wygenerować obrazka');
-    }
+    }, 3, onRetry);
 };
 
 /**
@@ -262,8 +311,12 @@ export const generateSentences = async (words: string[]): Promise<{ sentences: s
  * @param characterImageBase64 - Optional base64 image of main character
  * @returns Base64 image data
  */
-export const generateBookletImage = async (sentence: string, characterImageBase64?: string): Promise<string> => {
-    try {
+export const generateBookletImage = async (
+    sentence: string,
+    characterImageBase64?: string,
+    onRetry?: (attempt: number, maxRetries: number) => void
+): Promise<string> => {
+    return retryWithBackoff(async () => {
         console.log(`Calling generate-booklet-image Edge Function for: "${sentence}"`);
 
         const { data, error } = await supabase.functions.invoke('generate-booklet-image', {
@@ -294,9 +347,5 @@ export const generateBookletImage = async (sentence: string, characterImageBase6
 
         console.log(`Successfully received booklet image, size: ${data.base64Image.length} chars`);
         return data.base64Image;
-    } catch (err: any) {
-        console.error('Generate booklet image error:', err);
-        console.error('Error stack:', err.stack);
-        throw new Error(err.message || 'Nie udało się wygenerować obrazka dla książeczki');
-    }
+    }, 3, onRetry);
 };
