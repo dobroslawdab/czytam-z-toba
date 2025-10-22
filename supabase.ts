@@ -6,7 +6,7 @@ import { LearningSet, Word } from './types';
 const supabaseUrl = 'https://qxjudardrlbxqxlvpdvl.supabase.co'; // Twój Project URL
 
 // !!! IMPORTANT: You must replace this placeholder with your own Supabase anon key!
-const supabaseAnonKey = 'sb_publishable_-CzdBZ-Vfw6T1SsVoCak3A_60Ovw70o'; // Twój Project API Key (anon public)
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4anVkYXJkcmxieHF4bHZwZHZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAxNjAzOTksImV4cCI6MjA1NTczNjM5OX0.TRXr8XW14w24qE7jmNsjqf-IUfdCpdU-10KMZiQiDv4'; // Twój Project API Key (anon public)
 
 
 if (!supabaseUrl || !supabaseAnonKey || supabaseAnonKey === 'TWOJ_KLUCZ_ANON') {
