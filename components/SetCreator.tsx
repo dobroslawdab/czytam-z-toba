@@ -27,6 +27,8 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     const [mainCharacterWordId, setMainCharacterWordId] = useState<string | null>(null);
     const [characterReferenceImage, setCharacterReferenceImage] = useState<string | null>(null);
     const [retryAttempt, setRetryAttempt] = useState<{current: number, max: number} | null>(null);
+    const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+    const [promptText, setPromptText] = useState('');
 
     useEffect(() => {
         if (set_to_edit) {
@@ -209,7 +211,18 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
             return;
         }
 
-        setGeneratingImageIndex(sentenceIndex);
+        // Etap 1: Pokazanie pola do edycji prompta
+        if (!isEditingPrompt || generatingImageIndex !== sentenceIndex) {
+            const sentenceText = sentences[sentenceIndex].text;
+            const defaultPrompt = `Simple, child-friendly cartoon drawing illustrating the sentence: "${sentenceText}". Clean lines, simple colors, white background. No text in the image. Use the character from the reference image.`;
+            setPromptText(defaultPrompt);
+            setIsEditingPrompt(true);
+            setGeneratingImageIndex(sentenceIndex);
+            setError('');
+            return;
+        }
+
+        // Etap 2: Generowanie obrazka z custom promptem
         setError('');
         setRetryAttempt(null);
         try {
@@ -218,15 +231,20 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
             // Extract base64 data from data URL
             const characterImageBase64 = characterReferenceImage.split(',')[1];
 
-            // Call Edge Function to generate booklet image with retry callback
+            // Call Edge Function to generate booklet image with custom prompt and retry callback
             const base64Image = await generateBookletImage(
                 sentenceText,
                 characterImageBase64,
+                promptText,
                 (attempt, maxRetries) => setRetryAttempt({ current: attempt, max: maxRetries })
             );
             const imageUrl = `data:image/png;base64,${base64Image}`;
 
             setSentences(prev => prev.map((s, i) => i === sentenceIndex ? { ...s, image: imageUrl } : s));
+
+            // Reset prompt editing state
+            setIsEditingPrompt(false);
+            setPromptText('');
 
         } catch (error) {
              console.error("Error generating image:", error);
@@ -415,17 +433,35 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                                                     {syllabifyingIndex === index ? '...' : 'AI Podziel'}
                                                 </button>
                                             </div>
+
+                                            {/* Prompt Editor */}
+                                            {isEditingPrompt && generatingImageIndex === index && (
+                                                <div className="mt-2">
+                                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                        Edytuj prompt dla AI:
+                                                    </label>
+                                                    <textarea
+                                                        value={promptText}
+                                                        onChange={(e) => setPromptText(e.target.value)}
+                                                        rows={3}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                        placeholder="Simple, child-friendly cartoon drawing illustrating..."
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-2 ml-2">
                                         <button
                                             onClick={() => handleGenerateImage(index)}
-                                            disabled={generatingImageIndex !== null}
+                                            disabled={generatingImageIndex !== null && generatingImageIndex !== index}
                                             className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 disabled:bg-gray-200 disabled:cursor-wait"
                                         >
-                                            {generatingImageIndex === index
+                                            {generatingImageIndex === index && !isEditingPrompt
                                                 ? `Generuję...${retryAttempt ? ` (${retryAttempt.current}/${retryAttempt.max})` : ''}`
-                                                : (sentence.image ? 'Zmień' : 'Generuj obrazek')}
+                                                : isEditingPrompt && generatingImageIndex === index
+                                                    ? 'Generuj z tym promptem'
+                                                    : (sentence.image ? 'Zmień' : 'Generuj obrazek')}
                                         </button>
                                         <button onClick={() => handleRemoveSentence(index)} className="text-gray-400 hover:text-red-500 p-1">
                                             <Icon name="trash" className="w-4 h-4" />

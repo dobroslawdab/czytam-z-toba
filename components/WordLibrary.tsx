@@ -35,6 +35,8 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
     const [generatingImage, setGeneratingImage] = useState(false);
     const [imageError, setImageError] = useState<string | null>(null);
     const [retryAttempt, setRetryAttempt] = useState<{current: number, max: number} | null>(null);
+    const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+    const [promptText, setPromptText] = useState('');
 
     // New category management
     const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
@@ -81,6 +83,8 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
         setImageError(null);
         setShowNewCategoryInput(false);
         setNewCategoryName('');
+        setIsEditingPrompt(false);
+        setPromptText('');
     };
 
     const handleCategoryChange = (value: string) => {
@@ -114,14 +118,25 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
             return;
         }
 
+        // Etap 1: Pokazanie pola do edycji prompta
+        if (!isEditingPrompt) {
+            const defaultPrompt = `Simple, child-friendly cartoon drawing showing: ${formData.text}. Clean lines, simple colors, white background. No text in the image.`;
+            setPromptText(defaultPrompt);
+            setIsEditingPrompt(true);
+            setImageError(null);
+            return;
+        }
+
+        // Etap 2: Generowanie obrazka z custom promptem
         setGeneratingImage(true);
         setImageError(null);
         setRetryAttempt(null);
 
         try {
-            // 1. Call Edge Function to generate image with retry callback
+            // 1. Call Edge Function to generate image with custom prompt and retry callback
             const base64Image = await generateImage(
                 formData.text,
+                promptText,
                 (attempt, maxRetries) => setRetryAttempt({ current: attempt, max: maxRetries })
             );
 
@@ -130,6 +145,10 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
 
             // 3. Set URL in form
             setFormData({ ...formData, image_url: imageUrl });
+
+            // 4. Reset prompt editing state
+            setIsEditingPrompt(false);
+            setPromptText('');
 
         } catch (err: any) {
             console.error('Image generation error:', err);
@@ -471,6 +490,22 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                                 </div>
                                             )}
 
+                                            {/* Prompt Editor */}
+                                            {isEditingPrompt && (
+                                                <div className="mb-3">
+                                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                        Edytuj prompt dla AI (możesz przetłumaczyć na angielski lub dodać szczegóły):
+                                                    </label>
+                                                    <textarea
+                                                        value={promptText}
+                                                        onChange={(e) => setPromptText(e.target.value)}
+                                                        rows={4}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                                                        placeholder="Simple, child-friendly cartoon drawing showing: word. Clean lines, simple colors, white background."
+                                                    />
+                                                </div>
+                                            )}
+
                                             {/* Generate / Regenerate Button */}
                                             <button
                                                 type="button"
@@ -491,6 +526,13 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                                             Generuję obrazek...
                                                             {retryAttempt && ` (próba ${retryAttempt.current}/${retryAttempt.max})`}
                                                         </span>
+                                                    </>
+                                                ) : isEditingPrompt ? (
+                                                    <>
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                        <span>Generuj z tym promptem</span>
                                                     </>
                                                 ) : formData.image_url ? (
                                                     <>

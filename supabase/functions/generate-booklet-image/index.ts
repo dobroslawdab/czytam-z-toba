@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { sentence, characterImageBase64 } = await req.json();
+    const { sentence, characterImageBase64, customPrompt } = await req.json();
 
     if (!sentence || typeof sentence !== 'string') {
       return new Response(
@@ -34,7 +34,11 @@ Deno.serve(async (req) => {
 
     // Call Gemini API to generate booklet image
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `Prosty, przyjazny dziecku rysunek w stylu kreskówki ilustrujący zdanie: "${sentence}". Czyste linie, proste kolory, białe tło. Bez żadnego tekstu na obrazku. ${characterImageBase64 ? 'Użyj postaci z referencyjnego obrazka.' : ''}`;
+
+    // Use customPrompt if provided, otherwise use default English prompt
+    const prompt = customPrompt || `Simple, child-friendly cartoon drawing illustrating the sentence: "${sentence}". Clean lines, simple colors, white background. No text in the image. ${characterImageBase64 ? 'Use the character from the reference image.' : ''}`;
+
+    console.log(`Using prompt: "${prompt}"`);
 
     const parts = [{ text: prompt }];
 

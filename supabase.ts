@@ -244,17 +244,23 @@ export const syllabifyText = async (text: string): Promise<string> => {
 /**
  * Generate image using Supabase Edge Function
  * @param text - The word to generate image for
+ * @param customPrompt - Optional custom prompt for image generation
+ * @param onRetry - Optional retry callback
  * @returns Base64 image data
  */
 export const generateImage = async (
     text: string,
+    customPrompt?: string,
     onRetry?: (attempt: number, maxRetries: number) => void
 ): Promise<string> => {
     return retryWithBackoff(async () => {
         console.log(`Calling generate-image Edge Function for: "${text}"`);
+        if (customPrompt) {
+            console.log(`Using custom prompt: "${customPrompt}"`);
+        }
 
         const { data, error } = await supabase.functions.invoke('generate-image', {
-            body: { text }
+            body: { text, customPrompt }
         });
 
         if (error) {
@@ -309,18 +315,24 @@ export const generateSentences = async (words: string[]): Promise<{ sentences: s
  * Generate booklet image using Supabase Edge Function
  * @param sentence - The sentence to illustrate
  * @param characterImageBase64 - Optional base64 image of main character
+ * @param customPrompt - Optional custom prompt for image generation
+ * @param onRetry - Optional retry callback
  * @returns Base64 image data
  */
 export const generateBookletImage = async (
     sentence: string,
     characterImageBase64?: string,
+    customPrompt?: string,
     onRetry?: (attempt: number, maxRetries: number) => void
 ): Promise<string> => {
     return retryWithBackoff(async () => {
         console.log(`Calling generate-booklet-image Edge Function for: "${sentence}"`);
+        if (customPrompt) {
+            console.log(`Using custom prompt: "${customPrompt}"`);
+        }
 
         const { data, error } = await supabase.functions.invoke('generate-booklet-image', {
-            body: { sentence, characterImageBase64 }
+            body: { sentence, characterImageBase64, customPrompt }
         });
 
         if (error) {

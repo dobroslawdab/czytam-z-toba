@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { text } = await req.json();
+    const { text, customPrompt } = await req.json();
 
     if (!text || typeof text !== 'string') {
       return new Response(
@@ -35,7 +35,11 @@ Deno.serve(async (req) => {
 
     // Call Gemini API to generate image
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `Prosty, przyjazny dziecku rysunek w stylu kreskówki, przedstawiający tylko i wyłącznie: ${text}. Czyste linie, proste kolory, białe tło. Bez żadnego tekstu na obrazku.`;
+
+    // Use customPrompt if provided, otherwise use default English prompt
+    const prompt = customPrompt || `Simple, child-friendly cartoon drawing showing: ${text}. Clean lines, simple colors, white background. No text in the image.`;
+
+    console.log(`Using prompt: "${prompt}"`);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
