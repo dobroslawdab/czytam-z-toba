@@ -691,7 +691,18 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-
             ]));
         }
 
-        setCards(shuffleArray(gameCards));
+        // Filtruj karty, aby usunąć te bez prawidłowych słów w wordsById
+        // Aby zachować pary, grupujemy według wordId i usuwamy całe grupy jeśli słowo nie istnieje
+        const wordIds = new Set(gameCards.map(card => card.wordId));
+        const validWordIds = Array.from(wordIds).filter(wordId => {
+            const word = words.find(w => w.id === wordId);
+            return word !== undefined;
+        });
+
+        // Zachowaj tylko karty z prawidłowymi wordId
+        const filteredCards = gameCards.filter(card => validWordIds.includes(card.wordId));
+
+        setCards(shuffleArray(filteredCards));
     }, [words, variant]);
 
     useEffect(() => {
