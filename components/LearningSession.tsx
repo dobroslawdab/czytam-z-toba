@@ -671,19 +671,22 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-
     useEffect(() => {
         let gameCards: MemoryCard[];
 
+        // Filtruj słowa aby mieć tylko te z poprawnym id
+        const validWords = words.filter(word => word.id !== undefined);
+
         if (variant === 'image-word') {
             // Wariant: obrazek + słowo (osobne karty)
             // Ograniczenie do 10 par (20 kart), aby zmieściły się na ekranie
-            gameCards = words.slice(0, 10).flatMap(word => ([
-                { id: `${word.id}-image`, wordId: word.id, cardType: 'image' as const, isFlipped: false, isMatched: false },
-                { id: `${word.id}-word`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false }
+            gameCards = validWords.slice(0, 10).flatMap(word => ([
+                { id: `${word.id}-image`, wordId: word.id!, cardType: 'image' as const, isFlipped: false, isMatched: false },
+                { id: `${word.id}-word`, wordId: word.id!, cardType: 'word' as const, isFlipped: false, isMatched: false }
             ]));
         } else {
             // Wariant domyślny: słowo + słowo (identyczne karty ze słowami)
             // Ograniczenie do 10 par (20 kart), aby zmieściły się na ekranie
-            gameCards = words.slice(0, 10).flatMap(word => ([
-                { id: `${word.id}-a`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false },
-                { id: `${word.id}-b`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false }
+            gameCards = validWords.slice(0, 10).flatMap(word => ([
+                { id: `${word.id}-a`, wordId: word.id!, cardType: 'word' as const, isFlipped: false, isMatched: false },
+                { id: `${word.id}-b`, wordId: word.id!, cardType: 'word' as const, isFlipped: false, isMatched: false }
             ]));
         }
 
