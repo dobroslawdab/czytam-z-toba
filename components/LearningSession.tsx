@@ -673,13 +673,15 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-
 
         if (variant === 'image-word') {
             // Wariant: obrazek + słowo (osobne karty)
-            gameCards = words.flatMap(word => ([
+            // Ograniczenie do 10 par (20 kart), aby zmieściły się na ekranie
+            gameCards = words.slice(0, 10).flatMap(word => ([
                 { id: `${word.id}-image`, wordId: word.id, cardType: 'image' as const, isFlipped: false, isMatched: false },
                 { id: `${word.id}-word`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false }
             ]));
         } else {
             // Wariant domyślny: słowo + słowo (identyczne karty ze słowami)
-            gameCards = words.flatMap(word => ([
+            // Ograniczenie do 10 par (20 kart), aby zmieściły się na ekranie
+            gameCards = words.slice(0, 10).flatMap(word => ([
                 { id: `${word.id}-a`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false },
                 { id: `${word.id}-b`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false }
             ]));
