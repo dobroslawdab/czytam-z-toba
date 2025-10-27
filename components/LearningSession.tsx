@@ -795,8 +795,6 @@ export const LearningSession: React.FC<LearningSessionProps> = ({ session, words
         switch (session.mode) {
             case 'Pokaz kart':
                 return <CardShowMode words={sessionWords} />;
-            case 'Książeczka':
-                return <BookletMode session={session} sentences={session.set.sentences || []} sessionImages={sessionImages} />;
             case 'Książeczka 2.0 - Odkrywanie':
                 return <BookletDiscoveryMode session={session} sentences={session.set.sentences || []} sessionImages={sessionImages} />;
             case 'Sylaby w ruchu':

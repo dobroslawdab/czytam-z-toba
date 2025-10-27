@@ -35,7 +35,6 @@ const LearningModeButton: React.FC<{
             case LearningMode.CardShow:
             case LearningMode.CardsOnTable:
                  return set.type === SetType.PictureCards;
-            case LearningMode.Booklet:
             case LearningMode.BookletDiscovery:
                  return set.type === SetType.Booklet;
             case LearningMode.SyllablesInMotion:
@@ -147,7 +146,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ sets, words, loading, erro
                                 <div className="flex flex-wrap gap-2">
                                     <LearningModeButton mode={LearningMode.CardShow} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.CardsOnTable} set={set} onStart={onStartSession} />
-                                    <LearningModeButton mode={LearningMode.Booklet} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.BookletDiscovery} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.SyllablesInMotion} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.CompareWords} set={set} onStart={onStartSession} />
