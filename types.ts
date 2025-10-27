@@ -48,7 +48,7 @@ export enum LearningMode {
     Memory = "Memory",
 }
 
-export type MemoryVariant = 'image-image' | 'image-word';
+export type MemoryVariant = 'word-word' | 'image-word';
 
 export type ActiveSession = {
     set: LearningSet;

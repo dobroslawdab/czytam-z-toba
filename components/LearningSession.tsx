@@ -659,7 +659,7 @@ type MemoryCard = {
     isMatched: boolean;
 };
 
-const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'image-image' }) => {
+const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-word' }) => {
     const [cards, setCards] = useState<MemoryCard[]>([]);
     const [flippedCards, setFlippedCards] = useState<number[]>([]);
     const [isChecking, setIsChecking] = useState(false);
@@ -672,16 +672,16 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'image
         let gameCards: MemoryCard[];
 
         if (variant === 'image-word') {
-            // Wariant: obrazek + słowo
+            // Wariant: obrazek + słowo (osobne karty)
             gameCards = words.flatMap(word => ([
                 { id: `${word.id}-image`, wordId: word.id, cardType: 'image' as const, isFlipped: false, isMatched: false },
                 { id: `${word.id}-word`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false }
             ]));
         } else {
-            // Wariant domyślny: obrazek + słowo na karcie (para identycznych)
+            // Wariant domyślny: słowo + słowo (identyczne karty ze słowami)
             gameCards = words.flatMap(word => ([
-                { id: `${word.id}-a`, wordId: word.id, cardType: 'full' as const, isFlipped: false, isMatched: false },
-                { id: `${word.id}-b`, wordId: word.id, cardType: 'full' as const, isFlipped: false, isMatched: false }
+                { id: `${word.id}-a`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false },
+                { id: `${word.id}-b`, wordId: word.id, cardType: 'word' as const, isFlipped: false, isMatched: false }
             ]));
         }
 

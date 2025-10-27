@@ -18,12 +18,12 @@ export const MemoryVariantModal: React.FC<MemoryVariantModalProps> = ({ onSelect
 
                 <div className="space-y-4">
                     <button
-                        onClick={() => onSelect('image-image')}
+                        onClick={() => onSelect('word-word')}
                         className="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold py-4 px-6 rounded-lg transition-colors flex flex-col items-center"
                     >
-                        <span className="text-lg mb-2">🖼️ + 🖼️</span>
-                        <span className="text-base">Obrazek + Obrazek</span>
-                        <span className="text-sm text-indigo-600 mt-1">Dopasuj dwie identyczne karty</span>
+                        <span className="text-lg mb-2">📝 + 📝</span>
+                        <span className="text-base">Słowo + Słowo</span>
+                        <span className="text-sm text-indigo-600 mt-1">Dopasuj dwie identyczne karty ze słowami</span>
                     </button>
 
                     <button
