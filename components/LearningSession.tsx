@@ -90,6 +90,7 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     const [showAsSyllables, setShowAsSyllables] = useState(true);
     const [currentSyllableIndex, setCurrentSyllableIndex] = useState(-1); // -1 = nie rozpoczęto czytania
     const [syllablesArray, setSyllablesArray] = useState<string[]>([]);
+    const [wordsData, setWordsData] = useState<Array<{startIndex: number, endIndex: number}>>([]);
 
     const currentSentence = sentences[currentPage];
     
@@ -140,17 +141,31 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
 
             // W każdym słowie rozdziel na sylaby (po kropkach)
             const allSyllables: string[] = [];
+            const wordsInfo: Array<{startIndex: number, endIndex: number}> = [];
+
+            let currentIndex = 0;
+
             words.forEach((word, wordIndex) => {
                 const wordSyllables = word.split('·').filter(s => s.trim().length > 0);
-                allSyllables.push(...wordSyllables);
+
+                if (wordSyllables.length > 0) {
+                    const startIndex = currentIndex;
+                    const endIndex = currentIndex + wordSyllables.length - 1;
+
+                    wordsInfo.push({ startIndex, endIndex });
+                    allSyllables.push(...wordSyllables);
+                    currentIndex += wordSyllables.length;
+                }
 
                 // Dodaj znacznik spacji (oprócz ostatniego słowa)
                 if (wordIndex < words.length - 1) {
                     allSyllables.push(' '); // specjalny "element" dla spacji
+                    currentIndex++; // spacja też zajmuje indeks, ale nie jest w wordsInfo
                 }
             });
 
             setSyllablesArray(allSyllables);
+            setWordsData(wordsInfo);
             setCurrentSyllableIndex(-1); // Reset na nową stronę
         }
     }, [syllabifiedText, currentPage]);
@@ -207,18 +222,28 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
 
                     let opacity = 0.4; // Domyślnie 40%
 
+                    // Znajdź do którego słowa należy ta sylaba
+                    const wordIndex = wordsData.findIndex(w => index >= w.startIndex && index <= w.endIndex);
+
                     if (currentSyllableIndex === -1) {
                         // Nie rozpoczęto czytania - wszystkie 40%
                         opacity = 0.4;
                     } else if (currentSyllableIndex >= syllablesArray.length) {
-                        // Po ostatniej sylabie - wszystkie 100%
+                        // Po ostatniej sylabie całego zdania - wszystkie 100%
                         opacity = 1;
-                    } else if (index === currentSyllableIndex) {
-                        // TYLKO aktualna sylaba - 100%
-                        opacity = 1;
-                    } else {
-                        // Przeczytane i nieprzeczytane - 40%
-                        opacity = 0.4;
+                    } else if (wordIndex !== -1) {
+                        const word = wordsData[wordIndex];
+
+                        if (currentSyllableIndex > word.endIndex) {
+                            // Całe słowo zostało już przeczytane (przeszliśmy do następnego słowa) - 100%
+                            opacity = 1;
+                        } else if (index === currentSyllableIndex) {
+                            // To jest aktualna sylaba - 100%
+                            opacity = 1;
+                        } else {
+                            // Inne sylaby (w aktualnym słowie lub przyszłych słowach) - 40%
+                            opacity = 0.4;
+                        }
                     }
 
                     return (
