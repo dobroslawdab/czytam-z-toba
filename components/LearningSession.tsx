@@ -342,6 +342,7 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
     const [currentSyllableIndex, setCurrentSyllableIndex] = useState(-1);
     const [syllablesArray, setSyllablesArray] = useState<string[]>([]);
     const [wordsData, setWordsData] = useState<Array<{startIndex: number, endIndex: number}>>([]);
+    const [sentenceCompleted, setSentenceCompleted] = useState(false); // NOWE: czy zdanie jest ukończone (wszystkie sylaby przeczytane)
     const [imageRevealed, setImageRevealed] = useState(false); // NOWE: stan odkrycia obrazka
 
     const currentSentence = sentences[currentPage];
@@ -401,6 +402,7 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
             setSyllablesArray(allSyllables);
             setWordsData(wordsInfo);
             setCurrentSyllableIndex(-1);
+            setSentenceCompleted(false); // NOWE: reset ukończenia zdania przy nowej stronie
             setImageRevealed(false); // NOWE: reset odkrycia przy nowej stronie
         }
     }, [syllabifiedText, currentPage]);
@@ -422,10 +424,12 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
     const handleSyllableProgress = () => {
         if (!syllabifiedText || syllablesArray.length === 0 || isSyllabifying) return;
 
-        // Jeśli już po ostatniej sylabie całego zdania, odkryj obrazek i resetuj
-        if (currentSyllableIndex >= syllablesArray.length) {
-            setImageRevealed(true); // NOWE: odkryj obrazek
-            setTimeout(() => setCurrentSyllableIndex(-1), 1000); // Reset po animacji
+        // Jeśli obrazek jest już odkryty, nie rób nic
+        if (imageRevealed) return;
+
+        // Jeśli zdanie jest ukończone (wszystkie sylaby przeczytane), odkryj obrazek przy następnym kliknięciu
+        if (sentenceCompleted) {
+            setImageRevealed(true);
             return;
         }
 
@@ -443,9 +447,9 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
             setCurrentSyllableIndex(nextIndex);
         }
 
-        // NOWE: Sprawdź czy to była ostatnia sylaba → odkryj obrazek
+        // NOWE: Sprawdź czy to była ostatnia sylaba → oznacz zdanie jako ukończone (ale NIE odkrywaj obrazka)
         if (nextIndex >= syllablesArray.length) {
-            setImageRevealed(true);
+            setSentenceCompleted(true);
         }
     };
 
@@ -472,7 +476,8 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
 
                     if (currentSyllableIndex === -1) {
                         opacity = 0.4;
-                    } else if (currentSyllableIndex >= syllablesArray.length) {
+                    } else if (sentenceCompleted) {
+                        // NOWE: gdy zdanie jest ukończone, cały tekst na czarno (opacity 1)
                         opacity = 1;
                     } else if (wordIndex !== -1) {
                         const word = wordsData[wordIndex];
