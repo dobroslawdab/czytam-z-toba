@@ -207,14 +207,20 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
                         return <span key={index}> </span>;
                     }
 
-                    let opacity = 0.5; // Domyślnie szare (nieprzeczytane)
+                    let opacity = 0.4; // Domyślnie 40%
 
                     if (currentSyllableIndex === -1) {
-                        // Nie rozpoczęto czytania - wszystkie szare
-                        opacity = 0.5;
-                    } else if (index <= currentSyllableIndex) {
-                        // Przeczytane + aktualna - czarne
+                        // Nie rozpoczęto czytania - wszystkie 40%
+                        opacity = 0.4;
+                    } else if (currentSyllableIndex >= syllablesArray.length) {
+                        // Po ostatniej sylabie - wszystkie 100%
                         opacity = 1;
+                    } else if (index === currentSyllableIndex) {
+                        // TYLKO aktualna sylaba - 100%
+                        opacity = 1;
+                    } else {
+                        // Przeczytane i nieprzeczytane - 40%
+                        opacity = 0.4;
                     }
 
                     return (
