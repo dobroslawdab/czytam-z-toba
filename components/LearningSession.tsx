@@ -135,9 +135,22 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     // Podziel tekst na sylaby i zresetuj indeks przy zmianie strony lub tekstu
     useEffect(() => {
         if (syllabifiedText) {
-            // Rozdziel tekst na sylaby (oddzielone kropką środkową)
-            const syllables = syllabifiedText.split('·').map(s => s.trim()).filter(s => s.length > 0);
-            setSyllablesArray(syllables);
+            // Rozdziel na słowa (po spacjach)
+            const words = syllabifiedText.split(' ');
+
+            // W każdym słowie rozdziel na sylaby (po kropkach)
+            const allSyllables: string[] = [];
+            words.forEach((word, wordIndex) => {
+                const wordSyllables = word.split('·').filter(s => s.trim().length > 0);
+                allSyllables.push(...wordSyllables);
+
+                // Dodaj znacznik spacji (oprócz ostatniego słowa)
+                if (wordIndex < words.length - 1) {
+                    allSyllables.push(' '); // specjalny "element" dla spacji
+                }
+            });
+
+            setSyllablesArray(allSyllables);
             setCurrentSyllableIndex(-1); // Reset na nową stronę
         }
     }, [syllabifiedText, currentPage]);
@@ -155,12 +168,18 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     const handleSyllableProgress = () => {
         if (!syllabifiedText || syllablesArray.length === 0 || isSyllabifying) return;
 
-        if (currentSyllableIndex < syllablesArray.length - 1) {
+        // Znajdź następną sylabę (pomijając spacje)
+        let nextIndex = currentSyllableIndex + 1;
+        while (nextIndex < syllablesArray.length && syllablesArray[nextIndex] === ' ') {
+            nextIndex++;
+        }
+
+        if (nextIndex < syllablesArray.length) {
             // Przejdź do następnej sylaby
-            setCurrentSyllableIndex(prev => prev + 1);
-        } else if (currentSyllableIndex === syllablesArray.length - 1) {
-            // Po ostatniej sylabie - wszystkie sylaby zostają czarne
-            setCurrentSyllableIndex(syllablesArray.length); // oznacza "wszystkie przeczytane"
+            setCurrentSyllableIndex(nextIndex);
+        } else if (currentSyllableIndex < syllablesArray.length - 1) {
+            // Wszystkie sylaby przeczytane
+            setCurrentSyllableIndex(syllablesArray.length);
         } else {
             // Reset - rozpocznij od początku
             setCurrentSyllableIndex(-1);
@@ -183,6 +202,11 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
         return (
             <p className="learning-text learning-text-sentence animate-[fadeIn_0.3s_ease-in-out]">
                 {syllablesArray.map((syllable, index) => {
+                    // Spacja to specjalny element - zawsze widoczna
+                    if (syllable === ' ') {
+                        return <span key={index}> </span>;
+                    }
+
                     let opacity = 0.5; // Domyślnie szare (nieprzeczytane)
 
                     if (currentSyllableIndex === -1) {
@@ -200,7 +224,6 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
                             className="transition-opacity duration-300"
                         >
                             {syllable}
-                            {index < syllablesArray.length - 1 && ' · '}
                         </span>
                     );
                 })}
