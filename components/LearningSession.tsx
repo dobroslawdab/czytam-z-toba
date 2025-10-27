@@ -520,24 +520,30 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
                 className="w-full max-w-5xl aspect-video bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 sm:p-12 cursor-pointer"
                 onClick={handleSyllableProgress}
             >
-                <div className="w-full h-3/4 flex items-center justify-center mb-6">
-                    {imageUrl ? (
+                {/* Obrazek - ukryty przed przeczytaniem */}
+                {imageRevealed && imageUrl && (
+                    <div
+                        className="w-full h-3/4 flex items-center justify-center mb-6"
+                        style={{
+                            animation: 'imageReveal 0.8s ease-out'
+                        }}
+                    >
                         <img
                             src={imageUrl}
                             alt={currentSentence.text}
                             className="max-w-full max-h-full object-contain rounded-lg"
-                            style={{
-                                filter: imageRevealed ? 'none' : 'blur(12px)',
-                                imageRendering: imageRevealed ? 'auto' : 'pixelated',
-                                transform: imageRevealed ? 'scale(1)' : 'scale(1.05)',
-                                transition: 'filter 1.2s ease-out, transform 1.2s ease-out',
-                            }}
                         />
-                    ) : (
-                        <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">Brak obrazka</div>
-                    )}
-                </div>
-                <div className="text-5xl sm:text-7xl font-bold uppercase text-center text-gray-800 leading-relaxed h-32 flex items-center justify-center">
+                    </div>
+                )}
+
+                {/* Tekst - na środku gdy brak obrazka, na dole gdy obrazek widoczny */}
+                <div
+                    className="text-5xl sm:text-7xl font-bold uppercase text-center text-gray-800 leading-relaxed flex items-center justify-center"
+                    style={{
+                        height: imageRevealed ? '8rem' : '100%',
+                        transition: 'height 0.8s ease-out'
+                    }}
+                >
                     {renderSentence()}
                 </div>
             </div>
@@ -556,6 +562,16 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
                 @keyframes fadeIn {
                     from { opacity: 0; transform: scale(0.95); }
                     to { opacity: 1; transform: scale(1); }
+                }
+                @keyframes imageReveal {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-20px) scale(0.9);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
                 }
             `}</style>
         </div>
