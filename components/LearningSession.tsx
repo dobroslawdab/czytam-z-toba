@@ -168,22 +168,20 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     const handleSyllableProgress = () => {
         if (!syllabifiedText || syllablesArray.length === 0 || isSyllabifying) return;
 
-        // Znajdź następną sylabę (pomijając spacje)
+        // Jeśli już po ostatniej sylabie (wszystkie czarne), resetuj do początku
+        if (currentSyllableIndex >= syllablesArray.length) {
+            setCurrentSyllableIndex(-1);
+            return;
+        }
+
+        // Znajdź następny indeks (pomijając spacje)
         let nextIndex = currentSyllableIndex + 1;
         while (nextIndex < syllablesArray.length && syllablesArray[nextIndex] === ' ') {
             nextIndex++;
         }
 
-        if (nextIndex < syllablesArray.length) {
-            // Przejdź do następnej sylaby
-            setCurrentSyllableIndex(nextIndex);
-        } else if (currentSyllableIndex < syllablesArray.length - 1) {
-            // Wszystkie sylaby przeczytane
-            setCurrentSyllableIndex(syllablesArray.length);
-        } else {
-            // Reset - rozpocznij od początku
-            setCurrentSyllableIndex(-1);
-        }
+        // Ustaw następny indeks (nawet jeśli >= syllablesArray.length, co oznacza "po ostatniej sylabie")
+        setCurrentSyllableIndex(nextIndex);
     };
 
 
