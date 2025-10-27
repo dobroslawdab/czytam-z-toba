@@ -183,20 +183,29 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     const handleSyllableProgress = () => {
         if (!syllabifiedText || syllablesArray.length === 0 || isSyllabifying) return;
 
-        // Jeśli już po ostatniej sylabie (wszystkie czarne), resetuj do początku
+        // Jeśli już po ostatniej sylabie całego zdania (wszystkie czarne), resetuj do początku
         if (currentSyllableIndex >= syllablesArray.length) {
             setCurrentSyllableIndex(-1);
             return;
         }
 
-        // Znajdź następny indeks (pomijając spacje)
         let nextIndex = currentSyllableIndex + 1;
-        while (nextIndex < syllablesArray.length && syllablesArray[nextIndex] === ' ') {
-            nextIndex++;
-        }
 
-        // Ustaw następny indeks (nawet jeśli >= syllablesArray.length, co oznacza "po ostatniej sylabie")
-        setCurrentSyllableIndex(nextIndex);
+        // Jeśli jesteśmy na spacji (między słowami), przejdź do pierwszej sylaby następnego słowa
+        if (nextIndex < syllablesArray.length && syllablesArray[nextIndex] === ' ') {
+            // Przejdź do spacji (stan "słowo ukończone")
+            setCurrentSyllableIndex(nextIndex);
+        } else if (currentSyllableIndex >= 0 && syllablesArray[currentSyllableIndex] === ' ') {
+            // Już jesteśmy na spacji, przejdź do pierwszej sylaby następnego słowa (pomiń spację)
+            nextIndex = currentSyllableIndex + 1;
+            while (nextIndex < syllablesArray.length && syllablesArray[nextIndex] === ' ') {
+                nextIndex++;
+            }
+            setCurrentSyllableIndex(nextIndex);
+        } else {
+            // Normalne przejście do następnej sylaby
+            setCurrentSyllableIndex(nextIndex);
+        }
     };
 
 
@@ -234,7 +243,28 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
                     } else if (wordIndex !== -1) {
                         const word = wordsData[wordIndex];
 
-                        if (currentSyllableIndex > word.endIndex) {
+                        // Sprawdź czy currentSyllableIndex wskazuje na spację (stan "słowo ukończone")
+                        const isOnSpace = currentSyllableIndex >= 0 &&
+                                         currentSyllableIndex < syllablesArray.length &&
+                                         syllablesArray[currentSyllableIndex] === ' ';
+
+                        if (isOnSpace) {
+                            // Jesteśmy w stanie "między słowami"
+                            // Znajdź słowo przed spacją
+                            const previousWordIndex = wordsData.findIndex(w =>
+                                currentSyllableIndex > w.endIndex &&
+                                (wordsData.indexOf(w) === wordsData.length - 1 ||
+                                 currentSyllableIndex < wordsData[wordsData.indexOf(w) + 1].startIndex)
+                            );
+
+                            if (previousWordIndex !== -1 && wordIndex <= previousWordIndex) {
+                                // Sylaba należy do ukończonego słowa - 100%
+                                opacity = 1;
+                            } else {
+                                // Sylaba należy do przyszłych słów - 40%
+                                opacity = 0.4;
+                            }
+                        } else if (currentSyllableIndex > word.endIndex) {
                             // Całe słowo zostało już przeczytane (przeszliśmy do następnego słowa) - 100%
                             opacity = 1;
                         } else if (index === currentSyllableIndex) {
