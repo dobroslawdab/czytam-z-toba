@@ -329,6 +329,239 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     );
 };
 
+// ============================================
+// BOOKLET DISCOVERY MODE (Książeczka 2.0 - Odkrywanie)
+// ============================================
+
+const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, sessionImages }) => {
+    const [currentPage, setCurrentPage] = useState(0);
+    const [syllabifiedText, setSyllabifiedText] = useState<string | null>(null);
+    const [isSyllabifying, setIsSyllabifying] = useState(false);
+    const [syllabifyError, setSyllabifyError] = useState<string | null>(null);
+    const [showAsSyllables, setShowAsSyllables] = useState(true);
+    const [currentSyllableIndex, setCurrentSyllableIndex] = useState(-1);
+    const [syllablesArray, setSyllablesArray] = useState<string[]>([]);
+    const [wordsData, setWordsData] = useState<Array<{startIndex: number, endIndex: number}>>([]);
+    const [imageRevealed, setImageRevealed] = useState(false); // NOWE: stan odkrycia obrazka
+
+    const currentSentence = sentences[currentPage];
+
+    useEffect(() => {
+        if (!currentSentence) return;
+
+        // Check if syllables are already stored in the database
+        if (currentSentence.syllables) {
+            setSyllabifiedText(currentSentence.syllables);
+            setIsSyllabifying(false);
+            setSyllabifyError(null);
+            return;
+        }
+
+        const syllabify = async () => {
+            setIsSyllabifying(true);
+            setSyllabifyError(null);
+            try {
+                const { syllabifyText } = await import('../supabase');
+                const syllabified = await syllabifyText(currentSentence.text);
+                setSyllabifiedText(syllabified);
+            } catch (err: any) {
+                console.error('Syllabify error:', err);
+                setSyllabifyError(err.message || 'Nie udało się podzielić tekstu na sylaby');
+            } finally {
+                setIsSyllabifying(false);
+            }
+        };
+
+        syllabify();
+    }, [currentPage, sentences]);
+
+    // Podziel tekst na sylaby i zresetuj indeks przy zmianie strony lub tekstu
+    useEffect(() => {
+        if (syllabifiedText) {
+            const words = syllabifiedText.split(' ');
+            const allSyllables: string[] = [];
+            const wordsInfo: Array<{startIndex: number, endIndex: number}> = [];
+            let currentIndex = 0;
+
+            words.forEach((word, wordIndex) => {
+                const wordSyllables = word.split('·').filter(s => s.trim().length > 0);
+                if (wordSyllables.length > 0) {
+                    const startIndex = currentIndex;
+                    const endIndex = currentIndex + wordSyllables.length - 1;
+                    wordsInfo.push({ startIndex, endIndex });
+                    allSyllables.push(...wordSyllables);
+                    currentIndex += wordSyllables.length;
+                }
+                if (wordIndex < words.length - 1) {
+                    allSyllables.push(' ');
+                    currentIndex++;
+                }
+            });
+
+            setSyllablesArray(allSyllables);
+            setWordsData(wordsInfo);
+            setCurrentSyllableIndex(-1);
+            setImageRevealed(false); // NOWE: reset odkrycia przy nowej stronie
+        }
+    }, [syllabifiedText, currentPage]);
+
+    if (!sentences || sentences.length === 0) {
+        return <div className="w-full h-full flex items-center justify-center text-center p-8"><p className="text-xl text-gray-600">Ta książeczka nie ma jeszcze żadnych stron.</p></div>
+    }
+
+    const imageUrl = sessionImages[`${session.set.id}-${currentPage}`];
+
+    const nextPage = () => {
+        setCurrentPage(p => (p + 1) % sentences.length);
+    };
+
+    const prevPage = () => {
+        setCurrentPage(p => (p - 1 + sentences.length) % sentences.length);
+    };
+
+    const handleSyllableProgress = () => {
+        if (!syllabifiedText || syllablesArray.length === 0 || isSyllabifying) return;
+
+        // Jeśli już po ostatniej sylabie całego zdania, odkryj obrazek i resetuj
+        if (currentSyllableIndex >= syllablesArray.length) {
+            setImageRevealed(true); // NOWE: odkryj obrazek
+            setTimeout(() => setCurrentSyllableIndex(-1), 1000); // Reset po animacji
+            return;
+        }
+
+        let nextIndex = currentSyllableIndex + 1;
+
+        if (nextIndex < syllablesArray.length && syllablesArray[nextIndex] === ' ') {
+            setCurrentSyllableIndex(nextIndex);
+        } else if (currentSyllableIndex >= 0 && syllablesArray[currentSyllableIndex] === ' ') {
+            nextIndex = currentSyllableIndex + 1;
+            while (nextIndex < syllablesArray.length && syllablesArray[nextIndex] === ' ') {
+                nextIndex++;
+            }
+            setCurrentSyllableIndex(nextIndex);
+        } else {
+            setCurrentSyllableIndex(nextIndex);
+        }
+
+        // NOWE: Sprawdź czy to była ostatnia sylaba → odkryj obrazek
+        if (nextIndex >= syllablesArray.length) {
+            setImageRevealed(true);
+        }
+    };
+
+    const renderSentence = () => {
+        if (isSyllabifying) {
+            return <p className="learning-text learning-text-sentence text-gray-500 animate-pulse">Dzielenie na sylaby...</p>;
+        }
+        if (syllabifyError) {
+            return <p className="learning-text learning-text-sentence text-red-500 animate-[fadeIn_0.3s_ease-in-out]">{syllabifyError}</p>;
+        }
+        if (!syllabifiedText || syllablesArray.length === 0) {
+            return <p className="learning-text learning-text-sentence text-gray-500 animate-pulse">Ładowanie...</p>;
+        }
+
+        return (
+            <p className="learning-text learning-text-sentence animate-[fadeIn_0.3s_ease-in-out]">
+                {syllablesArray.map((syllable, index) => {
+                    if (syllable === ' ') {
+                        return <span key={index}> </span>;
+                    }
+
+                    let opacity = 0.4;
+                    const wordIndex = wordsData.findIndex(w => index >= w.startIndex && index <= w.endIndex);
+
+                    if (currentSyllableIndex === -1) {
+                        opacity = 0.4;
+                    } else if (currentSyllableIndex >= syllablesArray.length) {
+                        opacity = 1;
+                    } else if (wordIndex !== -1) {
+                        const word = wordsData[wordIndex];
+                        const isOnSpace = currentSyllableIndex >= 0 &&
+                                         currentSyllableIndex < syllablesArray.length &&
+                                         syllablesArray[currentSyllableIndex] === ' ';
+
+                        if (isOnSpace) {
+                            const previousWordIndex = wordsData.findIndex(w =>
+                                currentSyllableIndex > w.endIndex &&
+                                (wordsData.indexOf(w) === wordsData.length - 1 ||
+                                 currentSyllableIndex < wordsData[wordsData.indexOf(w) + 1].startIndex)
+                            );
+                            if (previousWordIndex !== -1 && wordIndex <= previousWordIndex) {
+                                opacity = 1;
+                            } else {
+                                opacity = 0.4;
+                            }
+                        } else if (currentSyllableIndex > word.endIndex) {
+                            opacity = 1;
+                        } else if (index === currentSyllableIndex) {
+                            opacity = 1;
+                        } else {
+                            opacity = 0.4;
+                        }
+                    }
+
+                    return (
+                        <span
+                            key={index}
+                            style={{ opacity }}
+                            className="transition-opacity duration-300"
+                        >
+                            {syllable}
+                        </span>
+                    );
+                })}
+            </p>
+        );
+    }
+
+    return (
+        <div className="w-full h-full flex flex-col items-center justify-center p-4 relative select-none">
+            <div
+                className="w-full max-w-5xl aspect-video bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 sm:p-12 cursor-pointer"
+                onClick={handleSyllableProgress}
+            >
+                <div className="w-full h-3/4 flex items-center justify-center mb-6">
+                    {imageUrl ? (
+                        <img
+                            src={imageUrl}
+                            alt={currentSentence.text}
+                            className="max-w-full max-h-full object-contain rounded-lg"
+                            style={{
+                                filter: imageRevealed ? 'none' : 'blur(12px)',
+                                imageRendering: imageRevealed ? 'auto' : 'pixelated',
+                                transform: imageRevealed ? 'scale(1)' : 'scale(1.05)',
+                                transition: 'filter 1.2s ease-out, transform 1.2s ease-out',
+                            }}
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">Brak obrazka</div>
+                    )}
+                </div>
+                <div className="text-5xl sm:text-7xl font-bold uppercase text-center text-gray-800 leading-relaxed h-32 flex items-center justify-center">
+                    {renderSentence()}
+                </div>
+            </div>
+
+            <button onClick={prevPage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/50 p-3 rounded-full hover:bg-white/80 transition-colors z-10">
+                <Icon name="arrow-left" className="w-8 h-8"/>
+            </button>
+            <button onClick={nextPage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/50 p-3 rounded-full hover:bg-white/80 transition-colors transform rotate-180 z-10">
+                <Icon name="arrow-left" className="w-8 h-8"/>
+            </button>
+
+            <div className="absolute bottom-4 text-gray-500 font-medium">
+                Strona {currentPage + 1} / {sentences.length}
+            </div>
+            <style>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: scale(0.95); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+            `}</style>
+        </div>
+    );
+};
+
 
 interface SyllablesInMotionModeProps {
     words: Word[];
@@ -543,6 +776,8 @@ export const LearningSession: React.FC<LearningSessionProps> = ({ session, words
                 return <CardShowMode words={sessionWords} />;
             case 'Książeczka':
                 return <BookletMode session={session} sentences={session.set.sentences || []} sessionImages={sessionImages} />;
+            case 'Książeczka 2.0 - Odkrywanie':
+                return <BookletDiscoveryMode session={session} sentences={session.set.sentences || []} sessionImages={sessionImages} />;
             case 'Sylaby w ruchu':
                 return <SyllablesInMotionMode words={sessionWords} />;
             case 'Porównaj słowa':

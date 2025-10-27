@@ -41,6 +41,7 @@ export enum View {
 export enum LearningMode {
     CardShow = "Pokaz kart",
     Booklet = "Książeczka",
+    BookletDiscovery = "Książeczka 2.0 - Odkrywanie",
     CardsOnTable = "Karty na stole",
     SyllablesInMotion = "Sylaby w ruchu",
     CompareWords = "Porównaj słowa",
