@@ -663,6 +663,7 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-
     const [cards, setCards] = useState<MemoryCard[]>([]);
     const [flippedCards, setFlippedCards] = useState<number[]>([]);
     const [isChecking, setIsChecking] = useState(false);
+    const [showConfetti, setShowConfetti] = useState(false);
 
     const wordsById = useMemo(() =>
         new Map(words.map(word => [word.id, word])),
@@ -732,8 +733,33 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-
 
     const allMatched = cards.length > 0 && cards.every(c => c.isMatched);
 
+    // Uruchom confetti gdy wszystkie pary zostaną dopasowane
+    useEffect(() => {
+        if (allMatched && cards.length > 0) {
+            setShowConfetti(true);
+            // Zatrzymaj animację po 5 sekundach
+            const timer = setTimeout(() => setShowConfetti(false), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [allMatched, cards.length]);
+
     return (
         <div className="w-full h-full flex flex-col items-center justify-center p-4">
+            {showConfetti && (
+                <div className="fixed inset-0 pointer-events-none z-50">
+                    {[...Array(50)].map((_, i) => (
+                        <div
+                            key={i}
+                            className="confetti"
+                            style={{
+                                left: `${Math.random() * 100}%`,
+                                animationDelay: `${Math.random() * 3}s`,
+                                backgroundColor: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'][Math.floor(Math.random() * 6)]
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
              {allMatched ? (
                  <div className="text-center">
                      <h2 className="text-4xl font-bold text-green-500 mb-4">Gratulacje!</h2>
