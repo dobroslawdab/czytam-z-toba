@@ -88,6 +88,8 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     const [isSyllabifying, setIsSyllabifying] = useState(false);
     const [syllabifyError, setSyllabifyError] = useState<string | null>(null);
     const [showAsSyllables, setShowAsSyllables] = useState(true);
+    const [currentSyllableIndex, setCurrentSyllableIndex] = useState(-1); // -1 = nie rozpoczęto czytania
+    const [syllablesArray, setSyllablesArray] = useState<string[]>([]);
 
     const currentSentence = sentences[currentPage];
     
@@ -130,6 +132,16 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
         syllabify();
     }, [currentPage, sentences]);
 
+    // Podziel tekst na sylaby i zresetuj indeks przy zmianie strony lub tekstu
+    useEffect(() => {
+        if (syllabifiedText) {
+            // Rozdziel tekst na sylaby (oddzielone kropką środkową)
+            const syllables = syllabifiedText.split('·').map(s => s.trim()).filter(s => s.length > 0);
+            setSyllablesArray(syllables);
+            setCurrentSyllableIndex(-1); // Reset na nową stronę
+        }
+    }, [syllabifiedText, currentPage]);
+
 
     if (!sentences || sentences.length === 0) {
         return <div className="w-full h-full flex items-center justify-center text-center p-8"><p className="text-xl text-gray-600">Ta książeczka nie ma jeszcze żadnych stron.</p></div>
@@ -140,33 +152,69 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
     const nextPage = () => setCurrentPage(p => (p + 1) % sentences.length);
     const prevPage = () => setCurrentPage(p => (p - 1 + sentences.length) % sentences.length);
 
-    const handleToggleSyllables = () => {
-        if (!isSyllabifying && syllabifiedText) {
-            setShowAsSyllables(prev => !prev);
+    const handleSyllableProgress = () => {
+        if (!syllabifiedText || syllablesArray.length === 0 || isSyllabifying) return;
+
+        if (currentSyllableIndex < syllablesArray.length - 1) {
+            // Przejdź do następnej sylaby
+            setCurrentSyllableIndex(prev => prev + 1);
+        } else if (currentSyllableIndex === syllablesArray.length - 1) {
+            // Po ostatniej sylabie - wszystkie sylaby zostają czarne
+            setCurrentSyllableIndex(syllablesArray.length); // oznacza "wszystkie przeczytane"
+        } else {
+            // Reset - rozpocznij od początku
+            setCurrentSyllableIndex(-1);
         }
     };
 
 
     const renderSentence = () => {
-        if (!showAsSyllables) {
-            return <p className="learning-text learning-text-sentence animate-[fadeIn_0.3s_ease-in-out]">{currentSentence.text}</p>;
-        }
         if (isSyllabifying) {
             return <p className="learning-text learning-text-sentence text-gray-500 animate-pulse">Dzielenie na sylaby...</p>;
         }
         if (syllabifyError) {
             return <p className="learning-text learning-text-sentence text-red-500 animate-[fadeIn_0.3s_ease-in-out]">{syllabifyError}</p>;
         }
-        if (syllabifiedText) {
-            return <p className="learning-text learning-text-sentence text-indigo-600 animate-[fadeIn_0.3s_ease-in-out]">{syllabifiedText}</p>;
+        if (!syllabifiedText || syllablesArray.length === 0) {
+            return <p className="learning-text learning-text-sentence text-gray-500 animate-pulse">Ładowanie...</p>;
         }
-        return <p className="learning-text learning-text-sentence text-gray-500 animate-pulse">Ładowanie...</p>;
+
+        // Renderuj sylaby z progresywnym podświetlaniem
+        return (
+            <p className="learning-text learning-text-sentence animate-[fadeIn_0.3s_ease-in-out]">
+                {syllablesArray.map((syllable, index) => {
+                    let opacity = 0.5; // Domyślnie szare (nieprzeczytane)
+
+                    if (currentSyllableIndex === -1) {
+                        // Nie rozpoczęto czytania - wszystkie szare
+                        opacity = 0.5;
+                    } else if (index <= currentSyllableIndex) {
+                        // Przeczytane + aktualna - czarne
+                        opacity = 1;
+                    }
+
+                    return (
+                        <span
+                            key={index}
+                            style={{ opacity }}
+                            className="transition-opacity duration-300"
+                        >
+                            {syllable}
+                            {index < syllablesArray.length - 1 && ' · '}
+                        </span>
+                    );
+                })}
+            </p>
+        );
     }
 
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-center p-4 relative select-none">
-            <div className="w-full max-w-5xl aspect-video bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 sm:p-12">
+            <div
+                className="w-full max-w-5xl aspect-video bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 sm:p-12 cursor-pointer"
+                onClick={handleSyllableProgress}
+            >
                 <div className="w-full h-3/4 flex items-center justify-center mb-6">
                     {imageUrl ? (
                         <img src={imageUrl} alt={currentSentence.text} className="max-w-full max-h-full object-contain rounded-lg"/>
@@ -174,10 +222,7 @@ const BookletMode: React.FC<BookletModeProps> = ({ session, sentences, sessionIm
                         <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">Brak obrazka</div>
                     )}
                 </div>
-                <div 
-                    className="text-5xl sm:text-7xl font-bold uppercase text-center text-gray-800 leading-relaxed h-32 flex items-center justify-center cursor-pointer"
-                    onClick={handleToggleSyllables}
-                >
+                <div className="text-5xl sm:text-7xl font-bold uppercase text-center text-gray-800 leading-relaxed h-32 flex items-center justify-center">
                     {renderSentence()}
                 </div>
             </div>
