@@ -21,11 +21,6 @@ interface CardShowModeProps {
 
 const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [showSyllables, setShowSyllables] = useState(true);
-
-    useEffect(() => {
-        setShowSyllables(true);
-    }, [currentIndex]);
 
     const nextCard = () => {
         setCurrentIndex((prev) => (prev + 1) % words.length);
@@ -35,35 +30,34 @@ const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
         setCurrentIndex((prev) => (prev - 1 + words.length) % words.length);
     };
 
-    const toggleSyllables = () => {
-        setShowSyllables(s => !s);
-    }
+    // Obsługa strzałek klawiatury
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') {
+                prevCard();
+            } else if (e.key === 'ArrowRight') {
+                nextCard();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentIndex]);
 
     const currentWord = words[currentIndex];
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-center p-4 relative select-none">
-            <div
-                className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl flex items-center justify-center p-16 cursor-pointer transition-all duration-300"
-                onClick={toggleSyllables}
-            >
+            <div className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl flex items-center justify-center p-16 transition-all duration-300">
                 <div className="text-6xl md:text-8xl font-bold tracking-wider text-center flex items-center justify-center">
-                    {showSyllables ? (
-                        <div className="learning-text learning-text-word text-gray-800 animate-[fadeIn_0.3s_ease-in-out] flex items-center gap-8">
-                            {currentWord.syllables.map((syllable, index) => (
-                                <span key={index} style={{position: 'relative', display: 'inline-block', paddingBottom: '20px'}}>
-                                    {syllable}
-                                    <svg style={{position: 'absolute', bottom: '0', left: '0', width: '100%', height: '12px'}} viewBox="0 0 100 12" preserveAspectRatio="none">
-                                        <path d="M2,6 Q50,10 98,6" stroke="#555" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-                                    </svg>
-                                </span>
-                            ))}
-                        </div>
-                    ) : (
-                         <p className="learning-text learning-text-word text-gray-800 animate-[fadeIn_0.3s_ease-in-out]">
-                            {currentWord.text}
-                        </p>
-                    )}
+                    <span style={{position: 'relative', display: 'inline-block', paddingBottom: '24px'}}>
+                        <span className="learning-text learning-text-word text-gray-800 animate-[fadeIn_0.3s_ease-in-out]">
+                            {currentWord.syllables.join('·')}
+                        </span>
+                        <svg style={{position: 'absolute', bottom: '0', left: '0', width: '100%', height: '16px'}} viewBox="0 0 100 16" preserveAspectRatio="none">
+                            <path d="M2,8 Q50,14 98,8" stroke="#555" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                        </svg>
+                    </span>
                 </div>
             </div>
             <button onClick={(e) => { e.stopPropagation(); prevCard(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/50 p-3 rounded-full hover:bg-white/80 transition-colors z-10">
