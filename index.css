@@ -42,7 +42,7 @@
     width: 10px;
     height: 10px;
     top: -10px;
-    animation: confetti-fall 5s linear forwards;
+    animation: confetti-fall 10s linear forwards;
 }
 
 @keyframes confetti-fall {

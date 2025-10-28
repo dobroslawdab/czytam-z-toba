@@ -748,8 +748,8 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-
     useEffect(() => {
         if (allMatched && cards.length > 0) {
             setShowConfetti(true);
-            // Zatrzymaj animację po 5 sekundach
-            const timer = setTimeout(() => setShowConfetti(false), 5000);
+            // Zatrzymaj animację po 10 sekundach
+            const timer = setTimeout(() => setShowConfetti(false), 10000);
             return () => clearTimeout(timer);
         }
     }, [allMatched, cards.length]);
@@ -771,13 +771,7 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-
                     ))}
                 </div>
             )}
-             {allMatched ? (
-                 <div className="text-center">
-                     <h2 className="text-4xl font-bold text-green-500 mb-4">Gratulacje!</h2>
-                     <p className="text-xl text-gray-700">Wszystkie pary zostały dopasowane.</p>
-                 </div>
-            ) : (
-                <div className="flex flex-wrap justify-center gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
                     {cards.map((card, index) => {
                         const word = wordsById.get(card.wordId);
                         if (!word) return null;
@@ -817,8 +811,7 @@ const MemoryGameMode: React.FC<MemoryGameModeProps> = ({ words, variant = 'word-
                             </div>
                         )
                     })}
-                </div>
-             )}
+            </div>
         </div>
     );
 }
