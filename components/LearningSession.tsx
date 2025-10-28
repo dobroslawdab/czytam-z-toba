@@ -52,10 +52,10 @@ const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
                 <div className="text-6xl md:text-8xl font-bold tracking-wider text-center flex items-center justify-center">
                     <span className="learning-text learning-text-word text-gray-800 animate-[fadeIn_0.3s_ease-in-out]">
                         {currentWord.syllables.map((syllable, index) => (
-                            <span key={index} style={{position: 'relative', display: 'inline-block', paddingBottom: '24px'}}>
+                            <span key={index} style={{position: 'relative', display: 'inline-block', paddingBottom: '24px', marginRight: index < currentWord.syllables.length - 1 ? '3px' : '0'}}>
                                 {syllable}
                                 <svg style={{position: 'absolute', bottom: '0', left: '0', width: '100%', height: '20px'}} viewBox="0 0 100 20" preserveAspectRatio="none">
-                                    <path d="M2,10 Q50,18 98,10" stroke="#555" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                                    <path d="M2,10 Q50,18 98,10" stroke="#555" strokeWidth="5.5" fill="none" strokeLinecap="round" />
                                 </svg>
                             </span>
                         ))}
