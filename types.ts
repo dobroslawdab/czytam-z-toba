@@ -8,7 +8,7 @@ export interface Word {
 }
 
 export enum SetType {
-  PictureCards = 'Karty sylabowe',
+  PictureCards = 'Karty obrazkowe',
   Booklet = 'Książeczka',
   Analysis = 'Karty do analizy',
   Comparison = 'Karty porównawcze',
