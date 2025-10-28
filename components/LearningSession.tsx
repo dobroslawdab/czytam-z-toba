@@ -43,16 +43,22 @@ const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-center p-4 relative select-none">
-            <div 
-                className="w-full max-w-4xl aspect-[4/3] bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 cursor-pointer transition-all duration-300"
+            <div
+                className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl flex items-center justify-center p-16 cursor-pointer transition-all duration-300"
                 onClick={toggleSyllables}
             >
-                <img src={currentWord.image_url} alt={currentWord.text} className="max-w-full max-h-[65%] object-contain rounded-lg" />
-                <div className="mt-8 text-6xl md:text-8xl font-bold tracking-wider text-center h-28 flex items-center">
+                <div className="text-6xl md:text-8xl font-bold tracking-wider text-center flex items-center justify-center">
                     {showSyllables ? (
-                        <p className="learning-text learning-text-word text-indigo-600 animate-[fadeIn_0.3s_ease-in-out]">
-                            {currentWord.syllables.join(' · ')}
-                        </p>
+                        <div className="learning-text learning-text-word text-gray-800 animate-[fadeIn_0.3s_ease-in-out] flex items-center gap-8">
+                            {currentWord.syllables.map((syllable, index) => (
+                                <span key={index} style={{position: 'relative', display: 'inline-block', paddingBottom: '20px'}}>
+                                    {syllable}
+                                    <svg style={{position: 'absolute', bottom: '0', left: '0', width: '100%', height: '12px'}} viewBox="0 0 100 12" preserveAspectRatio="none">
+                                        <path d="M2,6 Q50,10 98,6" stroke="#555" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                                    </svg>
+                                </span>
+                            ))}
+                        </div>
                     ) : (
                          <p className="learning-text learning-text-word text-gray-800 animate-[fadeIn_0.3s_ease-in-out]">
                             {currentWord.text}
