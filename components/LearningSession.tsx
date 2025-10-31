@@ -507,13 +507,25 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
                         }
                     }
 
+                    const isActive = index === currentSyllableIndex && opacity === 1;
+
                     return (
                         <span
                             key={index}
-                            style={{ opacity }}
+                            style={{
+                                opacity,
+                                position: isActive ? 'relative' : 'static',
+                                display: isActive ? 'inline-block' : 'inline',
+                                paddingBottom: isActive ? '24px' : '0'
+                            }}
                             className="transition-opacity duration-300"
                         >
                             {syllable}
+                            {isActive && (
+                                <svg style={{position: 'absolute', bottom: '0', left: '0', width: '100%', height: '20px'}} viewBox="0 0 100 20" preserveAspectRatio="none">
+                                    <path d="M2,10 Q50,18 98,10" stroke="#555" strokeWidth="5.5" fill="none" strokeLinecap="round" />
+                                </svg>
+                            )}
                         </span>
                     );
                 })}
