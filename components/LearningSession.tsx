@@ -514,9 +514,9 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
                             key={index}
                             style={{
                                 opacity,
-                                position: isActive ? 'relative' : 'static',
-                                display: isActive ? 'inline-block' : 'inline',
-                                paddingBottom: isActive ? '24px' : '0'
+                                position: 'relative',
+                                display: 'inline-block',
+                                paddingBottom: '24px'
                             }}
                             className="transition-opacity duration-300"
                         >
