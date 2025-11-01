@@ -49,12 +49,6 @@ export const initialLearningSets: LearningSet[] = [
         wordIds: ['6', '7', '10']
     },
     {
-        id: 4,
-        name: 'Porównania',
-        type: SetType.Comparison,
-        wordIds: ['11', '12', '13']
-    },
-    {
         id: 5,
         name: 'Historyjka o kocie',
         type: SetType.Booklet,

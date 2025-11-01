@@ -11,7 +11,6 @@ export enum SetType {
   PictureCards = 'Karty obrazkowe',
   Booklet = 'Książeczka',
   Analysis = 'Karty do analizy',
-  Comparison = 'Karty porównawcze',
 }
 
 export interface LearningSet {
@@ -43,7 +42,6 @@ export enum LearningMode {
     Booklet = "Książeczka",
     BookletDiscovery = "Książeczka 2.0 - Odkrywanie",
     SyllablesInMotion = "Sylaby w ruchu",
-    CompareWords = "Porównaj słowa",
     Memory = "Memory",
 }
 

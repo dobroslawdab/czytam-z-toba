@@ -38,8 +38,6 @@ const LearningModeButton: React.FC<{
                  return set.type === SetType.Booklet;
             case LearningMode.SyllablesInMotion:
                 return set.type === SetType.Analysis;
-            case LearningMode.CompareWords:
-                return set.type === SetType.Comparison;
             case LearningMode.Memory:
                 return set.type !== SetType.Booklet;
             default:
@@ -146,7 +144,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ sets, words, loading, erro
                                     <LearningModeButton mode={LearningMode.CardShow} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.BookletDiscovery} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.SyllablesInMotion} set={set} onStart={onStartSession} />
-                                    <LearningModeButton mode={LearningMode.CompareWords} set={set} onStart={onStartSession} />
                                     <LearningModeButton mode={LearningMode.Memory} set={set} onStart={onStartSession} onMemoryClick={() => setMemoryModalSet(set)} />
                                 </div>
                             </div>

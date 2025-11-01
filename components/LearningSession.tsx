@@ -660,25 +660,6 @@ const SyllablesInMotionMode: React.FC<SyllablesInMotionModeProps> = ({ words }) 
     );
 };
 
-interface CompareWordsModeProps {
-    words: Word[];
-}
-
-const CompareWordsMode: React.FC<CompareWordsModeProps> = ({ words }) => {
-    return (
-        <div className="w-full h-full flex items-center justify-center p-4 sm:p-8">
-            <div className="flex flex-wrap items-stretch justify-center gap-4 sm:gap-8">
-                {words.map(word => (
-                    <div key={word.id} className="bg-white rounded-2xl shadow-xl flex flex-col items-center p-6 w-52 sm:w-64">
-                        <img src={word.image_url} alt={word.text} className="w-full aspect-video object-cover rounded-lg mb-4" />
-                        <p className="learning-text learning-text-word text-3xl sm:text-4xl font-bold text-gray-800 tracking-wider">{word.text}</p>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
 
 interface MemoryGameModeProps {
     words: Word[];
@@ -868,8 +849,6 @@ export const LearningSession: React.FC<LearningSessionProps> = ({ session, words
                 return <BookletDiscoveryMode session={session} sentences={session.set.sentences || []} sessionImages={sessionImages} />;
             case 'Sylaby w ruchu':
                 return <SyllablesInMotionMode words={sessionWords} />;
-            case 'Porównaj słowa':
-                return <CompareWordsMode words={sessionWords} />;
             case 'Memory':
                 return <MemoryGameMode words={sessionWords} variant={session.memoryVariant} />;
             default:
