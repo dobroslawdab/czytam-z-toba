@@ -423,25 +423,31 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
         setCurrentPage(p => (p - 1 + sentences.length) % sentences.length);
     };
 
-    // Obsługa strzałek klawiatury
+    // Obsługa klawiatury: strzałki i spacja
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'ArrowLeft') {
                 prevPage();
             } else if (e.key === 'ArrowRight') {
                 nextPage();
+            } else if (e.key === ' ') {
+                e.preventDefault(); // Zapobiega scrollowaniu strony
+                handleSyllableProgress();
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentPage]);
+    }, [currentPage, syllabifiedText, syllablesArray, isSyllabifying, imageRevealed, sentenceCompleted, currentSyllableIndex]);
 
     const handleSyllableProgress = () => {
         if (!syllabifiedText || syllablesArray.length === 0 || isSyllabifying) return;
 
-        // Jeśli obrazek jest już odkryty, nie rób nic
-        if (imageRevealed) return;
+        // Jeśli obrazek jest już odkryty, przejdź do następnej strony
+        if (imageRevealed) {
+            nextPage();
+            return;
+        }
 
         // Jeśli zdanie jest ukończone (wszystkie sylaby przeczytane), odkryj obrazek przy następnym kliknięciu
         if (sentenceCompleted) {
