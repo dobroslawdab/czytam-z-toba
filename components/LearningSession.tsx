@@ -21,6 +21,16 @@ interface CardShowModeProps {
 
 const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [currentSyllableIndex, setCurrentSyllableIndex] = useState(-1); // -1 = nie rozpoczęto
+    const [wordCompleted, setWordCompleted] = useState(false);
+
+    const currentWord = words[currentIndex];
+
+    // Reset przy zmianie słowa
+    useEffect(() => {
+        setCurrentSyllableIndex(-1);
+        setWordCompleted(false);
+    }, [currentIndex]);
 
     const nextCard = () => {
         setCurrentIndex((prev) => (prev + 1) % words.length);
@@ -30,42 +40,111 @@ const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
         setCurrentIndex((prev) => (prev - 1 + words.length) % words.length);
     };
 
-    // Obsługa strzałek klawiatury
+    const handleSyllableProgress = () => {
+        // Jeśli słowo jest ukończone, przejdź do następnego słowa
+        if (wordCompleted) {
+            nextCard();
+            return;
+        }
+
+        const nextIndex = currentSyllableIndex + 1;
+
+        // Jeśli to była ostatnia sylaba, oznacz słowo jako ukończone
+        if (nextIndex >= currentWord.syllables.length) {
+            setWordCompleted(true);
+        } else {
+            setCurrentSyllableIndex(nextIndex);
+        }
+    };
+
+    const handleSyllableBack = () => {
+        // Jeśli słowo jest ukończone, cofnij do ostatniej sylaby
+        if (wordCompleted) {
+            setWordCompleted(false);
+            setCurrentSyllableIndex(currentWord.syllables.length - 1);
+            return;
+        }
+
+        // Jeśli jesteśmy na początku słowa, przejdź do poprzedniego słowa
+        if (currentSyllableIndex <= -1) {
+            prevCard();
+        } else {
+            setCurrentSyllableIndex(currentSyllableIndex - 1);
+        }
+    };
+
+    // Obsługa klawiatury: spacja i strzałki
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'ArrowLeft') {
-                prevCard();
+                handleSyllableBack();
             } else if (e.key === 'ArrowRight') {
-                nextCard();
+                handleSyllableProgress();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                handleSyllableProgress();
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentIndex]);
-
-    const currentWord = words[currentIndex];
+    }, [currentIndex, currentSyllableIndex, wordCompleted]);
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-center p-4 relative select-none">
-            <div className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl flex items-center justify-center p-16 transition-all duration-300">
+            <div
+                className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl flex items-center justify-center p-16 transition-all duration-300 cursor-pointer"
+                onClick={handleSyllableProgress}
+            >
                 <div className="text-6xl md:text-8xl font-bold tracking-wider text-center flex items-center justify-center">
-                    <span className="learning-text learning-text-word text-gray-800 animate-[fadeIn_0.3s_ease-in-out]">
-                        {currentWord.syllables.map((syllable, index) => (
-                            <span key={index} style={{position: 'relative', display: 'inline-block', paddingBottom: '24px', marginRight: index < currentWord.syllables.length - 1 ? '3px' : '0'}}>
-                                {syllable}
-                                <svg style={{position: 'absolute', bottom: '0', left: '0', width: '100%', height: '20px'}} viewBox="0 0 100 20" preserveAspectRatio="none">
-                                    <path d="M2,10 Q50,18 98,10" stroke="#555" strokeWidth="5.5" fill="none" strokeLinecap="round" />
-                                </svg>
-                            </span>
-                        ))}
+                    <span className="learning-text learning-text-word animate-[fadeIn_0.3s_ease-in-out]">
+                        {currentWord.syllables.map((syllable, index) => {
+                            let opacity = 0.4; // Domyślnie szare
+
+                            if (currentSyllableIndex === -1) {
+                                // Nie rozpoczęto - wszystkie szare
+                                opacity = 0.4;
+                            } else if (wordCompleted) {
+                                // Słowo ukończone - wszystkie czarne
+                                opacity = 1;
+                            } else if (index === currentSyllableIndex) {
+                                // Aktualna sylaba - czarna
+                                opacity = 1;
+                            } else if (index < currentSyllableIndex) {
+                                // Przeczytane sylaby - czarne
+                                opacity = 1;
+                            }
+
+                            const isActive = index === currentSyllableIndex && !wordCompleted;
+
+                            return (
+                                <span
+                                    key={index}
+                                    style={{
+                                        position: 'relative',
+                                        display: 'inline-block',
+                                        paddingBottom: '24px',
+                                        marginRight: index < currentWord.syllables.length - 1 ? '3px' : '0',
+                                        opacity,
+                                        transition: 'opacity 0.3s'
+                                    }}
+                                >
+                                    {syllable}
+                                    {isActive && (
+                                        <svg style={{position: 'absolute', bottom: '0', left: '0', width: '100%', height: '20px'}} viewBox="0 0 100 20" preserveAspectRatio="none">
+                                            <path d="M2,10 Q50,18 98,10" stroke="#555" strokeWidth="5.5" fill="none" strokeLinecap="round" />
+                                        </svg>
+                                    )}
+                                </span>
+                            );
+                        })}
                     </span>
                 </div>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); prevCard(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/50 p-3 rounded-full hover:bg-white/80 transition-colors z-10">
+            <button onClick={(e) => { e.stopPropagation(); handleSyllableBack(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/50 p-3 rounded-full hover:bg-white/80 transition-colors z-10">
                 <Icon name="arrow-left" className="w-8 h-8"/>
             </button>
-             <button onClick={(e) => { e.stopPropagation(); nextCard(); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/50 p-3 rounded-full hover:bg-white/80 transition-colors transform rotate-180 z-10">
+             <button onClick={(e) => { e.stopPropagation(); handleSyllableProgress(); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/50 p-3 rounded-full hover:bg-white/80 transition-colors transform rotate-180 z-10">
                 <Icon name="arrow-left" className="w-8 h-8"/>
             </button>
             <style>{`
