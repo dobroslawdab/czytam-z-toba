@@ -41,7 +41,6 @@ export enum LearningMode {
     CardShow = "Pokaz kart",
     Booklet = "Książeczka",
     BookletDiscovery = "Książeczka 2.0 - Odkrywanie",
-    SyllablesInMotion = "Sylaby w ruchu",
     Memory = "Memory",
 }
 

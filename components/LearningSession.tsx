@@ -697,48 +697,6 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
 };
 
 
-interface SyllablesInMotionModeProps {
-    words: Word[];
-}
-
-const SyllablesInMotionMode: React.FC<SyllablesInMotionModeProps> = ({ words }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [isSplit, setIsSplit] = useState(false);
-    const word = words[currentIndex];
-
-    const nextWord = () => {
-        setIsSplit(false);
-        setCurrentIndex(p => (p + 1) % words.length);
-    }
-    
-    return (
-        <div className="w-full h-full flex flex-col items-center justify-center p-4">
-             <div className="w-full max-w-4xl aspect-[4/3] bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 relative">
-                <div className="flex items-center justify-center space-x-4 h-32">
-                    {!isSplit ? (
-                         <h1 className="learning-text learning-text-word text-8xl font-bold text-gray-800">{word.text}</h1>
-                    ) : (
-                        word.syllables.map((syllable, index) => (
-                            <React.Fragment key={index}>
-                                <div className="learning-text learning-text-word text-8xl font-bold text-indigo-600 cursor-pointer hover:scale-110 transition-transform">{syllable}</div>
-                                {index < word.syllables.length - 1 && <div className="text-6xl text-gray-300">|</div>}
-                            </React.Fragment>
-                        ))
-                    )}
-                </div>
-                 <div className="absolute bottom-8 flex space-x-4">
-                     <button onClick={() => setIsSplit(!isSplit)} className="px-6 py-3 bg-indigo-500 text-white rounded-lg font-semibold">
-                         {isSplit ? 'Połącz' : 'Podziel'}
-                     </button>
-                     <button onClick={nextWord} className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">
-                         Następne słowo
-                     </button>
-                 </div>
-            </div>
-        </div>
-    );
-};
-
 
 interface MemoryGameModeProps {
     words: Word[];
@@ -926,8 +884,6 @@ export const LearningSession: React.FC<LearningSessionProps> = ({ session, words
                 return <CardShowMode words={sessionWords} />;
             case 'Książeczka 2.0 - Odkrywanie':
                 return <BookletDiscoveryMode session={session} sentences={session.set.sentences || []} sessionImages={sessionImages} />;
-            case 'Sylaby w ruchu':
-                return <SyllablesInMotionMode words={sessionWords} />;
             case 'Memory':
                 return <MemoryGameMode words={sessionWords} variant={session.memoryVariant} />;
             default:
