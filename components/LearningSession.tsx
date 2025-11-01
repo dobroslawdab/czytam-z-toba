@@ -423,6 +423,20 @@ const BookletDiscoveryMode: React.FC<BookletModeProps> = ({ session, sentences, 
         setCurrentPage(p => (p - 1 + sentences.length) % sentences.length);
     };
 
+    // Obsługa strzałek klawiatury
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') {
+                prevPage();
+            } else if (e.key === 'ArrowRight') {
+                nextPage();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentPage]);
+
     const handleSyllableProgress = () => {
         if (!syllabifiedText || syllablesArray.length === 0 || isSyllabifying) return;
 
