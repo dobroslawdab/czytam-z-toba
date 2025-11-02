@@ -10,6 +10,7 @@ export interface Word {
 export enum SetType {
   PictureCards = 'Karty obrazkowe',
   Booklet = 'Książeczka',
+  MyAdventures = 'Moje przygody',
 }
 
 export interface LearningSet {

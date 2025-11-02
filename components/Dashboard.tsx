@@ -35,7 +35,7 @@ const LearningModeButton: React.FC<{
             case LearningMode.CardShow:
                  return set.type === SetType.PictureCards;
             case LearningMode.BookletDiscovery:
-                 return set.type === SetType.Booklet;
+                 return set.type === SetType.Booklet || set.type === SetType.MyAdventures;
             case LearningMode.Memory:
                 return set.type !== SetType.Booklet;
             default:

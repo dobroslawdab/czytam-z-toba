@@ -29,6 +29,10 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     const [retryAttempt, setRetryAttempt] = useState<{current: number, max: number} | null>(null);
     const [isEditingPrompt, setIsEditingPrompt] = useState(false);
     const [promptText, setPromptText] = useState('');
+    // Stany dla "Moje przygody"
+    const [storyText, setStoryText] = useState('');
+    const [storyImage, setStoryImage] = useState<string | null>(null);
+    const [isProcessingStory, setIsProcessingStory] = useState(false);
 
     useEffect(() => {
         if (set_to_edit) {
@@ -81,6 +85,10 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     const handleNextStep = () => {
         if (step === 2 && setType === SetType.Booklet) {
             setStep(3);
+            return;
+        }
+        if (step === 2 && setType === SetType.MyAdventures) {
+            handleProcessStory();
             return;
         }
         handleSave();
@@ -288,6 +296,96 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
         word.text.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Funkcje dla "Moje przygody"
+    const handleStoryImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setStoryImage(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const getWordCount = (text: string) => {
+        return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    };
+
+    const handleProcessStory = async () => {
+        if (!setName.trim() || !storyText.trim()) {
+            setError('Wypełnij nazwę i tekst');
+            return;
+        }
+
+        const wordCount = getWordCount(storyText);
+        if (wordCount > 100) {
+            setError(`Tekst ma ${wordCount} słów. Maksimum to 100 słów.`);
+            return;
+        }
+
+        setIsProcessingStory(true);
+        setError('');
+
+        try {
+            // Podziel tekst na zdania (po kropce + spacja lub kropce na końcu)
+            const rawSentences = storyText
+                .split(/\.\s+|\.$/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0)
+                .map(s => s.endsWith('.') ? s : s + '.');
+
+            // Syllabify każde zdanie
+            const processedSentences = await Promise.all(
+                rawSentences.map(async (text) => {
+                    try {
+                        const syllables = await syllabifyText(text);
+                        return { text, syllables, image: storyImage || undefined };
+                    } catch (err) {
+                        console.error('Error syllabifying sentence:', err);
+                        return { text, image: storyImage || undefined };
+                    }
+                })
+            );
+
+            // Upload obrazka jeśli istnieje
+            let imageUrl: string | undefined;
+            if (storyImage) {
+                try {
+                    // Konwertuj base64 na blob
+                    const response = await fetch(storyImage);
+                    const blob = await response.blob();
+                    const file = new File([blob], 'story-image.jpg', { type: 'image/jpeg' });
+                    imageUrl = await uploadBookletImage(file, `story-${Date.now()}`);
+                } catch (err) {
+                    console.error('Error uploading story image:', err);
+                }
+            }
+
+            // Zapisz zestaw
+            const sentencesToSave = processedSentences.map(s => ({
+                text: s.text,
+                syllables: s.syllables,
+                ...(imageUrl && { image_url: imageUrl })
+            }));
+
+            onSave(
+                {
+                    name: setName,
+                    type: SetType.MyAdventures,
+                    wordIds: [], // Puste dla MyAdventures
+                    sentences: sentencesToSave
+                },
+                {} // Brak dodatkowych obrazków
+            );
+        } catch (err) {
+            console.error('Error processing story:', err);
+            setError('Wystąpił błąd podczas przetwarzania historyjki');
+        } finally {
+            setIsProcessingStory(false);
+        }
+    };
+
     const renderStep1 = () => (
         <div>
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Krok 1: Wybierz typ zestawu</h2>
@@ -305,48 +403,108 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
         </div>
     );
 
-    const renderStep2 = () => (
-        <div>
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">{set_to_edit ? 'Edytuj zestaw' : 'Krok 2: Nazwij zestaw i wybierz słowa'}</h2>
-            <div className="mb-4">
-                <label htmlFor="setName" className="block text-sm font-medium text-gray-700">Nazwa zestawu</label>
-                <input
-                    type="text"
-                    id="setName"
-                    value={setName}
-                    onChange={(e) => setSetName(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder={`Np. "Rodzina", "Zwierzęta w zoo"`}
-                />
-            </div>
+    const renderStep2ForMyAdventures = () => {
+        const wordCount = getWordCount(storyText);
+        return (
             <div>
-                <label htmlFor="searchWords" className="block text-sm font-medium text-gray-700">Wybierz słowa ({selectedWordIds.length})</label>
-                 <input
-                    type="text"
-                    id="searchWords"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="mt-1 mb-2 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Szukaj słów..."
-                />
-                <div className="max-h-60 overflow-y-auto p-2 border rounded-md bg-gray-50">
-                    {filteredWords.map(word => (
-                        <div
-                            key={word.id}
-                            onClick={() => toggleWordSelection(word.id)}
-                            className={`flex items-center justify-between p-2 rounded-md cursor-pointer mb-1 ${selectedWordIds.includes(word.id) ? 'bg-indigo-100 text-indigo-800' : 'hover:bg-gray-200'}`}
-                        >
-                            <div className="flex items-center">
-                                <img src={word.image_url} alt={word.text} className="w-10 h-10 rounded-md mr-3 object-cover"/>
-                                <span>{word.text}</span>
-                            </div>
-                            {selectedWordIds.includes(word.id) && <span className="text-indigo-600 font-bold">✓</span>}
+                <h2 className="text-2xl font-bold mb-6 text-gray-800">Stwórz swoją przygodę</h2>
+                <div className="mb-4">
+                    <label htmlFor="setName" className="block text-sm font-medium text-gray-700">Nazwa przygody</label>
+                    <input
+                        type="text"
+                        id="setName"
+                        value={setName}
+                        onChange={(e) => setSetName(e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder='Np. "Wyprawa do lasu", "Mój dzień w szkole"'
+                    />
+                </div>
+                <div className="mb-4">
+                    <label htmlFor="storyText" className="block text-sm font-medium text-gray-700">
+                        Twoja historia ({wordCount}/100 słów)
+                    </label>
+                    <textarea
+                        id="storyText"
+                        value={storyText}
+                        onChange={(e) => setStoryText(e.target.value)}
+                        rows={8}
+                        className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Napisz swoją historię... Pamiętaj o kropkach na końcu zdań. Maksimum 100 słów."
+                    />
+                    {wordCount > 100 && (
+                        <p className="text-red-500 text-sm mt-1">Przekroczono limit 100 słów!</p>
+                    )}
+                </div>
+                <div className="mb-4">
+                    <label htmlFor="storyImage" className="block text-sm font-medium text-gray-700">
+                        Obrazek (opcjonalny)
+                    </label>
+                    <input
+                        type="file"
+                        id="storyImage"
+                        accept="image/*"
+                        onChange={handleStoryImageUpload}
+                        className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                    />
+                    {storyImage && (
+                        <div className="mt-2">
+                            <img src={storyImage} alt="Podgląd" className="w-32 h-32 object-cover rounded-md" />
                         </div>
-                    ))}
+                    )}
+                </div>
+                {error && <p className="text-red-500 text-sm mt-4 p-2 bg-red-50 rounded-md">{error}</p>}
+            </div>
+        );
+    };
+
+    const renderStep2 = () => {
+        if (setType === SetType.MyAdventures) {
+            return renderStep2ForMyAdventures();
+        }
+
+        return (
+            <div>
+                <h2 className="text-2xl font-bold mb-6 text-gray-800">{set_to_edit ? 'Edytuj zestaw' : 'Krok 2: Nazwij zestaw i wybierz słowa'}</h2>
+                <div className="mb-4">
+                    <label htmlFor="setName" className="block text-sm font-medium text-gray-700">Nazwa zestawu</label>
+                    <input
+                        type="text"
+                        id="setName"
+                        value={setName}
+                        onChange={(e) => setSetName(e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder={`Np. "Rodzina", "Zwierzęta w zoo"`}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="searchWords" className="block text-sm font-medium text-gray-700">Wybierz słowa ({selectedWordIds.length})</label>
+                     <input
+                        type="text"
+                        id="searchWords"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="mt-1 mb-2 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Szukaj słów..."
+                    />
+                    <div className="max-h-60 overflow-y-auto p-2 border rounded-md bg-gray-50">
+                        {filteredWords.map(word => (
+                            <div
+                                key={word.id}
+                                onClick={() => toggleWordSelection(word.id)}
+                                className={`flex items-center justify-between p-2 rounded-md cursor-pointer mb-1 ${selectedWordIds.includes(word.id) ? 'bg-indigo-100 text-indigo-800' : 'hover:bg-gray-200'}`}
+                            >
+                                <div className="flex items-center">
+                                    <img src={word.image_url} alt={word.text} className="w-10 h-10 rounded-md mr-3 object-cover"/>
+                                    <span>{word.text}</span>
+                                </div>
+                                {selectedWordIds.includes(word.id) && <span className="text-indigo-600 font-bold">✓</span>}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     const renderStep3 = () => (
         <div>
@@ -477,13 +635,19 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     );
 
     const isNextDisabled = () => {
+        if (step === 2 && setType === SetType.MyAdventures) {
+            return !setName.trim() || !storyText.trim() || getWordCount(storyText) > 100 || isProcessingStory;
+        }
         if (step === 2) return !setName || selectedWordIds.length === 0;
         if (step === 3) return sentences.length === 0;
         return false;
     };
-    
+
     const getButtonText = () => {
         if (set_to_edit) return "Zapisz zmiany";
+        if (setType === SetType.MyAdventures && step === 2) {
+            return isProcessingStory ? "Przetwarzanie..." : "Zatwierdź";
+        }
         if (setType === SetType.Booklet) {
             return step === 2 ? "Dalej" : "Zapisz zestaw";
         }
