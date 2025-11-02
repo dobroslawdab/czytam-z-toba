@@ -20,6 +20,8 @@ export interface LearningSet {
   type: SetType;
   wordIds: string[];
   sentences?: { text: string; image_url?: string; syllables?: string }[];
+  syllabification_method?: SyllabificationMethod; // Metoda dzielenia na sylaby (dla MyAdventures)
+  text_alignment?: TextAlignment; // Wyrównanie tekstu (dla MyAdventures)
 }
 
 export interface ChildProfile {
@@ -45,6 +47,10 @@ export enum LearningMode {
 }
 
 export type MemoryVariant = 'word-word' | 'image-word';
+
+export type SyllabificationMethod = 'ai' | 'manual';
+
+export type TextAlignment = 'left' | 'center' | 'right';
 
 export type ActiveSession = {
     set: LearningSet;

@@ -232,8 +232,16 @@ const MyAdventuresMode: React.FC<MyAdventuresModeProps> = ({ session, sentences,
 
     const renderStory = () => {
         return sentences.map((sentence, sentenceIdx) => {
-            if (!sentence.syllables) return null;
+            // Jeśli brak sylab (metoda 'manual'), renderuj jako zwykły tekst
+            if (!sentence.syllables) {
+                return (
+                    <p key={sentenceIdx} className="learning-text text-3xl mb-2">
+                        {sentence.text}
+                    </p>
+                );
+            }
 
+            // Jeśli są sylaby (metoda 'ai'), renderuj z podziałem na sylaby
             const words = sentence.syllables.split(' ');
 
             return (
@@ -315,7 +323,7 @@ const MyAdventuresMode: React.FC<MyAdventuresModeProps> = ({ session, sentences,
                     </div>
                 )}
 
-                <div className="text-left text-gray-800 leading-relaxed">
+                <div className={`text-${session.set.text_alignment || 'left'} text-gray-800 leading-relaxed`}>
                     {renderStory()}
                 </div>
             </div>

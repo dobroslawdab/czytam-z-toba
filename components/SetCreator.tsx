@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LearningSet, Word, SetType } from '../types';
+import { LearningSet, Word, SetType, SyllabificationMethod, TextAlignment } from '../types';
 import { Icon } from './ui/Icon';
 import { uploadBookletImage, syllabifyText, generateSentences, generateBookletImage } from '../supabase';
 
@@ -33,6 +33,8 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     const [storyText, setStoryText] = useState('');
     const [storyImage, setStoryImage] = useState<string | null>(null);
     const [isProcessingStory, setIsProcessingStory] = useState(false);
+    const [syllabificationMethod, setSyllabificationMethod] = useState<SyllabificationMethod>('ai');
+    const [textAlignment, setTextAlignment] = useState<TextAlignment>('left');
 
     useEffect(() => {
         if (set_to_edit) {
@@ -335,14 +337,19 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                 .filter(s => s.length > 0)
                 .map(s => s.endsWith('.') ? s : s + '.');
 
-            // Syllabify każde zdanie
+            // Syllabify każde zdanie (tylko jeśli metoda to 'ai')
             const processedSentences = await Promise.all(
                 rawSentences.map(async (text) => {
-                    try {
-                        const syllables = await syllabifyText(text);
-                        return { text, syllables, image: storyImage || undefined };
-                    } catch (err) {
-                        console.error('Error syllabifying sentence:', err);
+                    if (syllabificationMethod === 'ai') {
+                        try {
+                            const syllables = await syllabifyText(text);
+                            return { text, syllables, image: storyImage || undefined };
+                        } catch (err) {
+                            console.error('Error syllabifying sentence:', err);
+                            return { text, image: storyImage || undefined };
+                        }
+                    } else {
+                        // Metoda 'manual' - bez dzielenia na sylaby
                         return { text, image: storyImage || undefined };
                     }
                 })
@@ -374,7 +381,9 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                     name: setName,
                     type: SetType.MyAdventures,
                     wordIds: [], // Puste dla MyAdventures
-                    sentences: sentencesToSave
+                    sentences: sentencesToSave,
+                    syllabification_method: syllabificationMethod,
+                    text_alignment: textAlignment
                 },
                 {} // Brak dodatkowych obrazków
             );
@@ -419,6 +428,79 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                         placeholder='Np. "Wyprawa do lasu", "Mój dzień w szkole"'
                     />
                 </div>
+
+                {/* Wybór metody dzielenia na sylaby */}
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Metoda dzielenia na sylaby</label>
+                    <div className="flex space-x-4">
+                        <label className="flex items-center">
+                            <input
+                                type="radio"
+                                name="syllabificationMethod"
+                                value="ai"
+                                checked={syllabificationMethod === 'ai'}
+                                onChange={(e) => setSyllabificationMethod(e.target.value as SyllabificationMethod)}
+                                className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">Dziel AI (automatycznie)</span>
+                        </label>
+                        <label className="flex items-center">
+                            <input
+                                type="radio"
+                                name="syllabificationMethod"
+                                value="manual"
+                                checked={syllabificationMethod === 'manual'}
+                                onChange={(e) => setSyllabificationMethod(e.target.value as SyllabificationMethod)}
+                                className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">Ręczny podział (bez dzielenia)</span>
+                        </label>
+                    </div>
+                </div>
+
+                {/* Wybór wyrównania tekstu */}
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Wyrównanie tekstu</label>
+                    <div className="flex space-x-2">
+                        <button
+                            type="button"
+                            onClick={() => setTextAlignment('left')}
+                            className={`flex items-center justify-center px-4 py-2 rounded-md border transition-colors ${
+                                textAlignment === 'left'
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                            <Icon name="align-left" className="w-5 h-5 mr-2" />
+                            <span className="text-sm">Lewo</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setTextAlignment('center')}
+                            className={`flex items-center justify-center px-4 py-2 rounded-md border transition-colors ${
+                                textAlignment === 'center'
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                            <Icon name="align-center" className="w-5 h-5 mr-2" />
+                            <span className="text-sm">Środek</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setTextAlignment('right')}
+                            className={`flex items-center justify-center px-4 py-2 rounded-md border transition-colors ${
+                                textAlignment === 'right'
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                            <Icon name="align-right" className="w-5 h-5 mr-2" />
+                            <span className="text-sm">Prawo</span>
+                        </button>
+                    </div>
+                </div>
+
                 <div className="mb-4">
                     <label htmlFor="storyText" className="block text-sm font-medium text-gray-700">
                         Twoja historia ({wordCount}/100 słów)
