@@ -157,6 +157,188 @@ const CardShowMode: React.FC<CardShowModeProps> = ({ words }) => {
     );
 };
 
+// ============================================
+// MY ADVENTURES MODE (Moje przygody)
+// ============================================
+
+interface MyAdventuresModeProps {
+    session: ActiveSession;
+    sentences: { text: string; syllables?: string }[];
+    sessionImages: Record<string, string>;
+}
+
+const MyAdventuresMode: React.FC<MyAdventuresModeProps> = ({ session, sentences, sessionImages }) => {
+    const [currentSyllableIndex, setCurrentSyllableIndex] = useState(-1);
+    const [allSyllablesArray, setAllSyllablesArray] = useState<{syllable: string, sentenceIndex: number, syllableIndexInSentence: number}[]>([]);
+    const [storyCompleted, setStoryCompleted] = useState(false);
+    const [imageRevealed, setImageRevealed] = useState(false);
+
+    // Połącz wszystkie zdania w jedną płaską listę sylab
+    useEffect(() => {
+        const flatSyllables: {syllable: string, sentenceIndex: number, syllableIndexInSentence: number}[] = [];
+
+        sentences.forEach((sentence, sentenceIdx) => {
+            if (!sentence.syllables) return;
+
+            const words = sentence.syllables.split(' ');
+            words.forEach((word, wordIdx) => {
+                const syllables = word.split('·').filter(s => s.trim().length > 0);
+                syllables.forEach((syl, sylIdx) => {
+                    flatSyllables.push({
+                        syllable: syl,
+                        sentenceIndex: sentenceIdx,
+                        syllableIndexInSentence: flatSyllables.filter(f => f.sentenceIndex === sentenceIdx).length
+                    });
+                });
+
+                // Dodaj spację między słowami (ale nie na końcu zdania)
+                if (wordIdx < words.length - 1) {
+                    flatSyllables.push({
+                        syllable: ' ',
+                        sentenceIndex: sentenceIdx,
+                        syllableIndexInSentence: flatSyllables.filter(f => f.sentenceIndex === sentenceIdx).length
+                    });
+                }
+            });
+        });
+
+        setAllSyllablesArray(flatSyllables);
+        setCurrentSyllableIndex(-1);
+        setStoryCompleted(false);
+        setImageRevealed(false);
+    }, [sentences]);
+
+    const handleSyllableProgress = () => {
+        if (imageRevealed) return;
+
+        if (storyCompleted) {
+            setImageRevealed(true);
+            return;
+        }
+
+        const nextIndex = currentSyllableIndex + 1;
+
+        if (nextIndex >= allSyllablesArray.length) {
+            setStoryCompleted(true);
+        } else {
+            setCurrentSyllableIndex(nextIndex);
+        }
+    };
+
+    // Obsługa klawiatury: spacja
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === ' ') {
+                e.preventDefault();
+                handleSyllableProgress();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentSyllableIndex, storyCompleted, imageRevealed]);
+
+    const renderStory = () => {
+        return sentences.map((sentence, sentenceIdx) => {
+            if (!sentence.syllables) return null;
+
+            const words = sentence.syllables.split(' ');
+
+            return (
+                <p key={sentenceIdx} className="learning-text text-3xl mb-2">
+                    {words.map((word, wordIdx) => {
+                        const syllables = word.split('·').filter(s => s.trim().length > 0);
+
+                        return (
+                            <span key={`${sentenceIdx}-${wordIdx}`}>
+                                {syllables.map((syllable, sylIdx) => {
+                                    // Znajdź globalny indeks tej sylaby
+                                    const globalIndex = allSyllablesArray.findIndex(
+                                        s => s.syllable === syllable &&
+                                        s.sentenceIndex === sentenceIdx &&
+                                        Math.floor(s.syllableIndexInSentence / 2) === wordIdx // Przybliżenie
+                                    );
+
+                                    let opacity = 0.4;
+                                    if (currentSyllableIndex === -1) {
+                                        opacity = 0.4;
+                                    } else if (storyCompleted) {
+                                        opacity = 1;
+                                    } else if (globalIndex <= currentSyllableIndex && globalIndex !== -1) {
+                                        opacity = 1;
+                                    }
+
+                                    const isActive = globalIndex === currentSyllableIndex && !storyCompleted;
+
+                                    return (
+                                        <span
+                                            key={sylIdx}
+                                            style={{
+                                                position: 'relative',
+                                                display: 'inline-block',
+                                                paddingBottom: '16px',
+                                                marginRight: sylIdx < syllables.length - 1 ? '2px' : '0',
+                                                opacity,
+                                                transition: 'opacity 0.3s'
+                                            }}
+                                        >
+                                            {syllable}
+                                            {isActive && (
+                                                <svg style={{position: 'absolute', bottom: '0', left: '0', width: '100%', height: '16px'}} viewBox="0 0 100 20" preserveAspectRatio="none">
+                                                    <path d="M2,10 Q50,18 98,10" stroke="#555" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+                                                </svg>
+                                            )}
+                                        </span>
+                                    );
+                                })}
+                                {wordIdx < words.length - 1 && ' '}
+                            </span>
+                        );
+                    })}
+                </p>
+            );
+        });
+    };
+
+    // Pobierz pierwszy obrazek z sentences
+    const imageUrl = sentences[0]?.image ? sessionImages[`${session.set.id}-0`] : null;
+
+    return (
+        <div className="w-full h-full flex flex-col items-center justify-center p-4 relative select-none">
+            <div
+                className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 sm:p-12 cursor-pointer overflow-y-auto max-h-[90vh]"
+                onClick={handleSyllableProgress}
+            >
+                {imageRevealed && imageUrl && (
+                    <div className="w-full mb-6 flex justify-center" style={{ animation: 'imageReveal 0.8s ease-out' }}>
+                        <img
+                            src={imageUrl}
+                            alt="Historia"
+                            className="max-w-md max-h-64 object-contain rounded-lg"
+                        />
+                    </div>
+                )}
+
+                <div className="text-center text-gray-800 leading-relaxed">
+                    {renderStory()}
+                </div>
+            </div>
+            <style>{`
+                @keyframes imageReveal {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-20px) scale(0.9);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+                }
+            `}</style>
+        </div>
+    );
+};
+
 interface BookletModeProps {
     session: ActiveSession;
     sentences: { text: string; syllables?: string }[];
@@ -883,6 +1065,11 @@ export const LearningSession: React.FC<LearningSessionProps> = ({ session, words
             case 'Pokaz kart':
                 return <CardShowMode words={sessionWords} />;
             case 'Książeczka 2.0 - Odkrywanie':
+                // Dla "Moje przygody" używamy specjalnego komponentu z wszystkimi zdaniami na jednym ekranie
+                if (session.set.type === 'Moje przygody') {
+                    return <MyAdventuresMode session={session} sentences={session.set.sentences || []} sessionImages={sessionImages} />;
+                }
+                // Dla zwykłej "Książeczki" używamy BookletDiscoveryMode z osobnymi stronami
                 return <BookletDiscoveryMode session={session} sentences={session.set.sentences || []} sessionImages={sessionImages} />;
             case 'Memory':
                 return <MemoryGameMode words={sessionWords} variant={session.memoryVariant} />;
