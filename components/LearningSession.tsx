@@ -169,13 +169,15 @@ interface MyAdventuresModeProps {
 
 const MyAdventuresMode: React.FC<MyAdventuresModeProps> = ({ session, sentences, sessionImages }) => {
     const [currentSyllableIndex, setCurrentSyllableIndex] = useState(-1);
-    const [allSyllablesArray, setAllSyllablesArray] = useState<{syllable: string, sentenceIndex: number, syllableIndexInSentence: number}[]>([]);
+    const [syllableIndexMap, setSyllableIndexMap] = useState<Map<string, number>>(new Map());
+    const [totalSyllables, setTotalSyllables] = useState(0);
     const [storyCompleted, setStoryCompleted] = useState(false);
     const [imageRevealed, setImageRevealed] = useState(false);
 
-    // Połącz wszystkie zdania w jedną płaską listę sylab
+    // Stwórz mapę pozycji sylaby → globalny indeks
     useEffect(() => {
-        const flatSyllables: {syllable: string, sentenceIndex: number, syllableIndexInSentence: number}[] = [];
+        const indexMap = new Map<string, number>();
+        let globalIdx = 0;
 
         sentences.forEach((sentence, sentenceIdx) => {
             if (!sentence.syllables) return;
@@ -184,25 +186,15 @@ const MyAdventuresMode: React.FC<MyAdventuresModeProps> = ({ session, sentences,
             words.forEach((word, wordIdx) => {
                 const syllables = word.split('·').filter(s => s.trim().length > 0);
                 syllables.forEach((syl, sylIdx) => {
-                    flatSyllables.push({
-                        syllable: syl,
-                        sentenceIndex: sentenceIdx,
-                        syllableIndexInSentence: flatSyllables.filter(f => f.sentenceIndex === sentenceIdx).length
-                    });
+                    const key = `${sentenceIdx}-${wordIdx}-${sylIdx}`;
+                    indexMap.set(key, globalIdx);
+                    globalIdx++;
                 });
-
-                // Dodaj spację między słowami (ale nie na końcu zdania)
-                if (wordIdx < words.length - 1) {
-                    flatSyllables.push({
-                        syllable: ' ',
-                        sentenceIndex: sentenceIdx,
-                        syllableIndexInSentence: flatSyllables.filter(f => f.sentenceIndex === sentenceIdx).length
-                    });
-                }
             });
         });
 
-        setAllSyllablesArray(flatSyllables);
+        setSyllableIndexMap(indexMap);
+        setTotalSyllables(globalIdx);
         setCurrentSyllableIndex(-1);
         setStoryCompleted(false);
         setImageRevealed(false);
@@ -218,7 +210,7 @@ const MyAdventuresMode: React.FC<MyAdventuresModeProps> = ({ session, sentences,
 
         const nextIndex = currentSyllableIndex + 1;
 
-        if (nextIndex >= allSyllablesArray.length) {
+        if (nextIndex >= totalSyllables) {
             setStoryCompleted(true);
         } else {
             setCurrentSyllableIndex(nextIndex);
@@ -250,14 +242,18 @@ const MyAdventuresMode: React.FC<MyAdventuresModeProps> = ({ session, sentences,
                         const syllables = word.split('·').filter(s => s.trim().length > 0);
 
                         return (
-                            <span key={`${sentenceIdx}-${wordIdx}`}>
+                            <span
+                                key={`${sentenceIdx}-${wordIdx}`}
+                                style={{
+                                    display: 'inline-block',
+                                    wordBreak: 'keep-all',
+                                    hyphens: 'none'
+                                }}
+                            >
                                 {syllables.map((syllable, sylIdx) => {
-                                    // Znajdź globalny indeks tej sylaby
-                                    const globalIndex = allSyllablesArray.findIndex(
-                                        s => s.syllable === syllable &&
-                                        s.sentenceIndex === sentenceIdx &&
-                                        Math.floor(s.syllableIndexInSentence / 2) === wordIdx // Przybliżenie
-                                    );
+                                    // Znajdź globalny indeks tej sylaby używając mapy
+                                    const key = `${sentenceIdx}-${wordIdx}-${sylIdx}`;
+                                    const globalIndex = syllableIndexMap.get(key) ?? -1;
 
                                     let opacity = 0.4;
                                     if (currentSyllableIndex === -1) {
@@ -319,7 +315,7 @@ const MyAdventuresMode: React.FC<MyAdventuresModeProps> = ({ session, sentences,
                     </div>
                 )}
 
-                <div className="text-center text-gray-800 leading-relaxed">
+                <div className="text-left text-gray-800 leading-relaxed">
                     {renderStory()}
                 </div>
             </div>
