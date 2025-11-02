@@ -43,12 +43,6 @@ export const initialLearningSets: LearningSet[] = [
         wordIds: ['1', '2', '16', '17', '18', '19', '7', '20', '14', '10']
     },
     {
-        id: 3,
-        name: 'Do analizy',
-        type: SetType.Analysis,
-        wordIds: ['6', '7', '10']
-    },
-    {
         id: 5,
         name: 'Historyjka o kocie',
         type: SetType.Booklet,
