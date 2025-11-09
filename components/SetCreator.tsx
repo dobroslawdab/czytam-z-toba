@@ -24,8 +24,8 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     const [generatingImageIndex, setGeneratingImageIndex] = useState<number | null>(null);
     const [syllabifyingIndex, setSyllabifyingIndex] = useState<number | null>(null);
     const [error, setError] = useState('');
-    const [mainCharacterWordId, setMainCharacterWordId] = useState<string | null>(null);
-    const [characterReferenceImage, setCharacterReferenceImage] = useState<string | null>(null);
+    const [mainCharacterWordIds, setMainCharacterWordIds] = useState<string[]>([]);
+    const [characterReferenceImages, setCharacterReferenceImages] = useState<Record<string, string>>({});
     const [retryAttempt, setRetryAttempt] = useState<{current: number, max: number} | null>(null);
     const [isEditingPrompt, setIsEditingPrompt] = useState(false);
     const [promptText, setPromptText] = useState('');
@@ -51,37 +51,42 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
         }
     }, [set_to_edit]);
 
-    // Load character reference image from word.image_url when main character is selected
+    // Load character reference images from word.image_url when main characters are selected
     useEffect(() => {
-        const loadCharacterImage = async () => {
-            if (!mainCharacterWordId) {
-                setCharacterReferenceImage(null);
+        const loadCharacterImages = async () => {
+            if (mainCharacterWordIds.length === 0) {
+                setCharacterReferenceImages({});
                 return;
             }
 
-            const mainCharacterWord = words.find(w => w.id === mainCharacterWordId);
-            if (!mainCharacterWord || !mainCharacterWord.image_url) {
-                setCharacterReferenceImage(null);
-                return;
+            const newImages: Record<string, string> = {};
+
+            for (const wordId of mainCharacterWordIds) {
+                const mainCharacterWord = words.find(w => w.id === wordId);
+                if (!mainCharacterWord || !mainCharacterWord.image_url) {
+                    continue;
+                }
+
+                try {
+                    // Fetch image from URL and convert to base64
+                    const response = await fetch(mainCharacterWord.image_url);
+                    const blob = await response.blob();
+                    const base64 = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.readAsDataURL(blob);
+                    });
+                    newImages[wordId] = base64;
+                } catch (err) {
+                    console.error('Error loading character image:', err);
+                }
             }
 
-            try {
-                // Fetch image from URL and convert to base64
-                const response = await fetch(mainCharacterWord.image_url);
-                const blob = await response.blob();
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setCharacterReferenceImage(reader.result as string);
-                };
-                reader.readAsDataURL(blob);
-            } catch (err) {
-                console.error('Error loading character image:', err);
-                setCharacterReferenceImage(null);
-            }
+            setCharacterReferenceImages(newImages);
         };
 
-        loadCharacterImage();
-    }, [mainCharacterWordId, words]);
+        loadCharacterImages();
+    }, [mainCharacterWordIds, words]);
 
 
     const handleNextStep = () => {
@@ -178,13 +183,19 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     };
 
     const handleGenerateSentences = async () => {
+        if (mainCharacterWordIds.length === 0) {
+            setError("Wybierz przynajmniej jedną postać główną, aby generować zdania.");
+            return;
+        }
+
         setIsGeneratingText(true);
         setError('');
         try {
-            const selectedWords = selectedWordIds.map(id => words.find(w => w.id === id)?.text).filter(Boolean) as string[];
+            // Use only main character words for sentence generation
+            const mainCharacterWords = mainCharacterWordIds.map(id => words.find(w => w.id === id)?.text).filter(Boolean) as string[];
 
             // Call Edge Function to generate sentences
-            const jsonResponse = await generateSentences(selectedWords);
+            const jsonResponse = await generateSentences(mainCharacterWords);
 
             if (jsonResponse.sentences && Array.isArray(jsonResponse.sentences)) {
                 // Syllabify each sentence immediately before adding to state
@@ -211,20 +222,22 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
     };
     
     const handleGenerateImage = async (sentenceIndex: number) => {
-        if (!mainCharacterWordId) {
-            setError("Wybierz postać główną, aby generować spójne obrazki.");
+        if (mainCharacterWordIds.length === 0) {
+            setError("Wybierz przynajmniej jedną postać główną, aby generować spójne obrazki.");
             return;
         }
 
-        if (!characterReferenceImage) {
-            setError("Ładowanie ilustracji postaci głównej... Spróbuj ponownie za chwilę.");
+        if (Object.keys(characterReferenceImages).length === 0) {
+            setError("Ładowanie ilustracji postaci głównych... Spróbuj ponownie za chwilę.");
             return;
         }
 
         // Etap 1: Pokazanie pola do edycji prompta
         if (!isEditingPrompt || generatingImageIndex !== sentenceIndex) {
             const sentenceText = sentences[sentenceIndex].text;
-            const defaultPrompt = `Simple, child-friendly cartoon drawing illustrating the sentence: "${sentenceText}". Clean lines, simple colors, white background. No text in the image. Use the character from the reference image.`;
+            const characterCount = mainCharacterWordIds.length;
+            const characterText = characterCount === 1 ? 'the character' : 'the characters';
+            const defaultPrompt = `Simple, child-friendly cartoon drawing illustrating the sentence: "${sentenceText}". Clean lines, simple colors, white background. No text in the image. Use ${characterText} from the reference image${characterCount > 1 ? 's' : ''}.`;
             setPromptText(defaultPrompt);
             setIsEditingPrompt(true);
             setGeneratingImageIndex(sentenceIndex);
@@ -238,8 +251,10 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
         try {
             const sentenceText = sentences[sentenceIndex].text;
 
-            // Extract base64 data from data URL
-            const characterImageBase64 = characterReferenceImage.split(',')[1];
+            // Use the first character's reference image for now (or you could concatenate/blend multiple)
+            // For simplicity, we'll use the first selected character
+            const firstCharacterId = mainCharacterWordIds[0];
+            const characterImageBase64 = characterReferenceImages[firstCharacterId].split(',')[1];
 
             // Call Edge Function to generate booklet image with custom prompt and retry callback
             const base64Image = await generateBookletImage(
@@ -594,10 +609,10 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white p-4 rounded-lg shadow">
                     <h3 className="font-semibold mb-2">Wygeneruj zdania z AI</h3>
-                    <p className="text-sm text-gray-600 mb-3">Wykorzystaj wybrane słowa, aby stworzyć proste zdania.</p>
-                    <button 
+                    <p className="text-sm text-gray-600 mb-3">Wykorzystaj wybrane postacie główne, aby stworzyć proste zdania.</p>
+                    <button
                         onClick={handleGenerateSentences}
-                        disabled={isGeneratingText || selectedWordIds.length < 2}
+                        disabled={isGeneratingText || mainCharacterWordIds.length === 0}
                         className="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md shadow-md hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-colors"
                     >
                         {isGeneratingText ? 'Generowanie...' : 'Wygeneruj 3 zdania'}
@@ -621,17 +636,24 @@ export const SetCreator: React.FC<SetCreatorProps> = ({ words, onSave, onCancel,
                 </div>
              </div>
               <div className="mt-6 bg-white p-4 rounded-lg shadow">
-                <h3 className="font-semibold">Postać główna</h3>
-                <p className="text-sm text-gray-600 mt-1 mb-3">Wybierz postać, która będzie pojawiać się na wszystkich obrazkach. To zapewni spójność ilustracji. Zmiana postaci zresetuje referencyjny obrazek.</p>
+                <h3 className="font-semibold">Postacie główne</h3>
+                <p className="text-sm text-gray-600 mt-1 mb-3">Wybierz jedną lub więcej postaci, które będą używane do generowania zdań i obrazków. To zapewni spójność ilustracji.</p>
                 <div className="flex flex-wrap gap-2">
                     {(selectedWordIds.map(id => words.find(w => w.id === id)).filter(Boolean) as Word[]).map(word => (
                         <button
                             key={word.id}
-                            onClick={() => setMainCharacterWordId(word.id)}
-                            className={`flex items-center space-x-2 p-2 rounded-lg border-2 transition-colors ${mainCharacterWordId === word.id ? 'border-indigo-500 bg-indigo-50' : 'border-transparent bg-gray-100 hover:bg-gray-200'}`}
+                            onClick={() => {
+                                setMainCharacterWordIds(prev =>
+                                    prev.includes(word.id)
+                                        ? prev.filter(id => id !== word.id)
+                                        : [...prev, word.id]
+                                );
+                            }}
+                            className={`flex items-center space-x-2 p-2 rounded-lg border-2 transition-colors ${mainCharacterWordIds.includes(word.id) ? 'border-indigo-500 bg-indigo-50' : 'border-transparent bg-gray-100 hover:bg-gray-200'}`}
                         >
                             <img src={word.image_url} alt={word.text} className="w-8 h-8 rounded-md object-cover"/>
                             <span>{word.text}</span>
+                            {mainCharacterWordIds.includes(word.id) && <span className="text-indigo-600 font-bold">✓</span>}
                         </button>
                     ))}
                 </div>
