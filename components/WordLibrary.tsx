@@ -419,7 +419,24 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                                 Kategoria *
                                             </label>
 
-                                            {!showNewCategoryInput ? (
+                                            {formData.category && !showNewCategoryInput && !formCategories.includes(formData.category) ? (
+                                                // Pokazuj nową kategorię jako readonly field z możliwością zmiany
+                                                <div className="space-y-2">
+                                                    <div className="px-4 py-3 border-2 border-green-500 bg-green-50 rounded-lg flex items-center justify-between">
+                                                        <div>
+                                                            <span className="font-medium text-gray-800">{formData.category}</span>
+                                                            <span className="text-green-600 text-sm ml-2">✓ Nowa kategoria</span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFormData({ ...formData, category: '' })}
+                                                            className="px-3 py-1 bg-white border border-green-500 text-green-600 text-sm rounded hover:bg-green-100 transition-colors"
+                                                        >
+                                                            Zmień
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : !showNewCategoryInput ? (
                                                 <select
                                                     required
                                                     value={formData.category}
@@ -441,6 +458,12 @@ export const WordLibrary: React.FC<WordLibraryProps> = ({
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                                         placeholder="Wpisz nazwę nowej kategorii..."
                                                         autoFocus
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                handleConfirmNewCategory();
+                                                            }
+                                                        }}
                                                     />
                                                     <div className="flex gap-2">
                                                         <button
